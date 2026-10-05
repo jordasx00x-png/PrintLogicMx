@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "CheckIn": {
+      "title": "CheckIn",
+      "description": "Reparación o ingreso de equipo impresor",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "client": { "type": "object" },
+        "clientId": { "type": "string" },
+        "printer": { "type": "object" },
+        "accessories": { "type": "object" },
+        "initialDiagnosis": { "type": "string" },
+        "notes": { "type": "string" },
+        "statusHistory": { "type": "array" },
+        "quote": { "type": "object" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Producto o refacción en catálogo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "stock": { "type": "number" },
+        "description": { "type": "string" }
+      }
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Cliente registrado",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Venta o cotización independiente de refacciones",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "client": { "type": "object" },
+        "clientId": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "status": { "type": "string" },
+        "type": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "CompanySettings": {
+      "title": "CompanySettings",
+      "description": "Configuración del perfil de empresa",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "logo": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/checkins/{checkInId}": {
+      "schema": { "$ref": "#/entities/CheckIn" },
+      "description": "Colección de registros de impresoras"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Colección de productos y refacciones"
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/Client" },
+      "description": "Colección de clientes"
+    },
+    "/sales/{saleId}": {
+      "schema": { "$ref": "#/entities/Sale" },
+      "description": "Colección de ventas y cotizaciones"
+    },
+    "/company_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/CompanySettings" },
+      "description": "Configuración de empresa"
+    }
+  }
+}
