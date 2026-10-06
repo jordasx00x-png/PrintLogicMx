@@ -197,7 +197,8 @@ export async function deleteSaleFromFirestore(id: string) {
 export async function saveSettingsToFirestore(settings: CompanySettings) {
   const path = 'company_settings/default';
   try {
-    await setDoc(doc(db, 'company_settings', 'default'), settings);
+    const cleanData = JSON.parse(JSON.stringify(settings));
+    await setDoc(doc(db, 'company_settings', 'default'), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

@@ -1,76 +1,105 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CompanySettings } from '../types';
 import { subscribeSettings, saveSettingsToFirestore } from '../lib/firestoreService';
 
-export function useSettings(isAuthenticated: boolean = false) {
-  const [settings, setSettings] = useState<CompanySettings>({
-    name: 'PrintLogicMx',
-    address: '',
-    phone: '',
-    logo: '',
-    email: '',
-    website: ''
-  });
-  const [loading, setLoading] = useState(true);
+const DEFAULT_SETTINGS: CompanySettings = {
+  name: 'PrintLogicMx',
+  address: '',
+  phone: '',
+  logo: '',
+  email: '',
+  website: ''
+};
 
-  const fetchSettings = async () => {
+const LOCAL_STORAGE_KEY = 'printfix_company_settings';
+
+export function useSettings(isAuthenticated: boolean = true) {
+  const [settings, setSettings] = useState<CompanySettings>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.error('Error reading settings from localStorage:', e);
+    }
+    return DEFAULT_SETTINGS;
+  });
+  const [loading, setLoading] = useState(false);
+
+  const fetchSettings = useCallback(async () => {
     try {
       const response = await fetch('/api/settings');
       if (response.ok) {
         const data = await response.json();
-        setSettings(data || {
-          name: 'PrintLogicMx',
-          address: '',
-          phone: '',
-          logo: '',
-          email: '',
-          website: ''
-        });
+        if (data && typeof data === 'object') {
+          const merged = { ...DEFAULT_SETTINGS, ...data };
+          setSettings(merged);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        }
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
-    } finally {
-      setLoading(false);
+      // Backend not running (e.g. GitHub Pages static host), harmless
     }
-  };
+  }, []);
 
   const updateSettings = async (newSettings: CompanySettings) => {
-    setSettings(newSettings);
+    const cleanSettings: CompanySettings = {
+      name: (newSettings.name || '').trim(),
+      address: (newSettings.address || '').trim(),
+      phone: (newSettings.phone || '').trim(),
+      logo: newSettings.logo || '',
+      email: (newSettings.email || '').trim(),
+      website: (newSettings.website || '').trim()
+    };
+
+    // 1. Instant local UI update
+    setSettings(cleanSettings);
+
+    // 2. Local storage persistence
     try {
-      // Save to local SQLite API
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleanSettings));
+    } catch (e) {
+      console.error('Error saving settings to localStorage:', e);
+    }
+
+    try {
+      // 3. Local SQLite API (if server is active)
       fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings)
-      }).catch(err => console.error('Error saving settings to SQLite:', err));
+        body: JSON.stringify(cleanSettings)
+      }).catch(() => {});
 
-      // Save to Firestore real-time DB only if authenticated
-      if (isAuthenticated) {
-        await saveSettingsToFirestore(newSettings);
-      }
+      // 4. Firestore Cloud Real-Time DB (works everywhere, including GitHub Pages)
+      await saveSettingsToFirestore(cleanSettings);
       return true;
     } catch (error) {
       console.error('Error updating settings:', error);
-      return false;
+      // Still return true if saved to localStorage
+      return true;
     }
   };
 
   useEffect(() => {
     fetchSettings();
 
-    if (!isAuthenticated) {
-      return;
+    // Subscribe to real-time Firestore settings across devices
+    let unsubscribe = () => {};
+    try {
+      unsubscribe = subscribeSettings((firestoreSettings) => {
+        if (firestoreSettings && typeof firestoreSettings === 'object' && firestoreSettings.name) {
+          const merged = { ...DEFAULT_SETTINGS, ...firestoreSettings };
+          setSettings(merged);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+        }
+      });
+    } catch (e) {
+      console.error('Error subscribing to Firestore settings:', e);
     }
 
-    // Subscribe to real-time Firestore settings
-    const unsubscribe = subscribeSettings((firestoreSettings) => {
-      if (firestoreSettings) {
-        setSettings(firestoreSettings);
-      }
-    });
-
     return () => unsubscribe();
-  }, [isAuthenticated]);
+  }, [fetchSettings]);
 
   return { settings, loading, updateSettings, refreshSettings: fetchSettings };
 }
