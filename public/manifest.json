@@ -1,20 +1,31 @@
 {
-  "short_name": "PrintLogic",
-  "name": "PrintLogic Soluciones",
+  "id": "/",
+  "name": "PrintFix - Taller Profesional",
+  "short_name": "PrintFix",
+  "description": "Sistema profesional para el ingreso de impresoras, gestión de clientes, garantías y cotizaciones.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#020617",
+  "background_color": "#020617",
   "icons": [
     {
-      "src": "logo.png",
+      "src": "pwa-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "logo.png",
+      "src": "pwa-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ],
-  "start_url": "/",
-  "display": "standalone",
-  "theme_color": "#4f46e5",
-  "background_color": "#ffffff"
+  ]
 }

@@ -22,6 +22,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { PWAInstallButton } from './PWAInstallButton';
+import { OfflineIndicator } from './OfflineIndicator';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -223,6 +225,9 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
 
           {/* Right: Quick Action Buttons & Search Icon on Mobile */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* PWA Install Button */}
+            <PWAInstallButton variant="header" />
+
             {/* Mobile Search Button */}
             <button
               onClick={() => setIsQuickSearchOpen(true)}
@@ -269,6 +274,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
                 {children}
               </motion.div>
             </AnimatePresence>
+            <OfflineIndicator />
           </div>
         </main>
 
@@ -414,6 +420,11 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               </div>
 
               <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
+                {/* In-app install card for mobile */}
+                <div className="px-1 pb-3">
+                  <PWAInstallButton variant="drawer" />
+                </div>
+
                 <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Secciones</p>
                 {navItems.map((item) => (
                   <button
