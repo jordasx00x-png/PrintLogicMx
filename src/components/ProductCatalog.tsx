@@ -112,29 +112,27 @@ export function ProductCatalog({
   const profitMarginPercent = formData.price > 0 ? ((estimatedProfit / formData.price) * 100).toFixed(1) : '0';
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20">
+    <div className="max-w-7xl mx-auto space-y-6 pb-20">
       {/* Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black uppercase tracking-widest rounded-xl border border-indigo-100">
-              Gestión de Inventario y Márgenes
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 md:p-6 rounded-2xl border border-slate-200/90 shadow-xs">
+        <div>
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight font-display flex items-center gap-2">
+            Catálogo de Refacciones
+            <span className="text-xs font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+              {products.length}
             </span>
-            <span className="text-xs font-bold text-slate-400">• {products.length} Items registrados</span>
-          </div>
-          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">Catálogo Maestro</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">Control de costos internos de compra y precios de venta para cotizaciones.</p>
+          </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 relative z-10">
+        <div className="flex items-center gap-2.5">
           {products.length > 0 && onDeleteAllProducts && (
             <button
               type="button"
               onClick={() => setShowClearAllModal(true)}
-              className="flex items-center gap-2 px-5 py-3.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-2xl border border-red-100 transition-all active:scale-95"
+              className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl border border-red-200 transition-colors cursor-pointer"
             >
-              <Trash2 className="w-4 h-4" />
-              Vaciar Catálogo ({products.length})
+              <Trash2 className="w-3.5 h-3.5 inline mr-1" />
+              Vaciar
             </button>
           )}
 
@@ -145,10 +143,10 @@ export function ProductCatalog({
               setEditingId(null);
               setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0 });
             }}
-            className="flex items-center justify-center gap-3 px-7 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 group"
+            className="btn-tactile px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-            Nuevo Registro
+            <Plus className="w-4 h-4" />
+            <span>Agregar Producto</span>
           </button>
         </div>
       </div>

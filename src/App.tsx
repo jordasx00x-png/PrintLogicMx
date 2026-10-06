@@ -369,7 +369,6 @@ export default function App() {
           onViewDetails={handleViewDetails} 
           onDelete={handleDeleteCheckIn}
           onUpdateStatus={handleUpdateStatus}
-          onNewCheckIn={() => handleNavigate('new')}
         />
       )}
       {currentView === 'new' && (
