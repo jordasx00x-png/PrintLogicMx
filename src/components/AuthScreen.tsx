@@ -28,7 +28,11 @@ export function AuthScreen({ onLogin, onGoogleLogin }: AuthScreenProps) {
     try {
       const result = await onGoogleLogin();
       if (!result.success && result.error) {
-        setError(result.error);
+        if (result.error.includes('unauthorized-domain')) {
+          setError(`El dominio (${window.location.hostname}) no está autorizado en Firebase. Para solucionarlo, agrégalo en la Consola de Firebase > Authentication > Settings > Authorized domains.`);
+        } else {
+          setError(result.error);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión con Google');
