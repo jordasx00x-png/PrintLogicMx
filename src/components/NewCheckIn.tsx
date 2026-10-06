@@ -427,7 +427,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
 
                 <div className="space-y-1">
                   <label htmlFor="clientEmail" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Correo Electrónico
+                    Correo Electrónico (Opcional)
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
@@ -438,7 +438,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                       value={formData.clientEmail}
                       onChange={handleChange}
                       className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="correo@ejemplo.com"
+                      placeholder="correo@ejemplo.com (Opcional)"
                     />
                   </div>
                 </div>

@@ -50,7 +50,8 @@ export function ProductCatalog({
     price: 0,
     cost: 0,
     category: 'Repuesto',
-    stock: 0
+    stock: 0,
+    compatibleModels: ''
   });
 
   const categories = ['Todos', 'Repuesto', 'Servicio', 'Reparación', 'Consumible', 'Otro'];
@@ -91,7 +92,7 @@ export function ProductCatalog({
       onAddProduct(formData);
     }
     setIsAdding(false);
-    setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0 });
+    setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0, compatibleModels: '' });
   };
 
   const handleEdit = (product: Product) => {
@@ -101,7 +102,8 @@ export function ProductCatalog({
       price: product.price || 0,
       cost: product.cost || 0,
       category: product.category || 'Repuesto',
-      stock: product.stock || 0
+      stock: product.stock || 0,
+      compatibleModels: product.compatibleModels || ''
     });
     setEditingId(product.id);
     setIsAdding(true);
@@ -141,7 +143,7 @@ export function ProductCatalog({
             onClick={() => {
               setIsAdding(true);
               setEditingId(null);
-              setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0 });
+              setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0, compatibleModels: '' });
             }}
             className="btn-tactile px-4 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
@@ -304,7 +306,18 @@ export function ProductCatalog({
                     onChange={e => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
                     className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all resize-none"
-                    placeholder="Detalles sobre compatibilidad, garantía o notas del servicio..."
+                    placeholder="Detalles sobre garantía o notas del servicio..."
+                  />
+                </div>
+
+                <div className="space-y-2 lg:col-span-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 ml-1">Modelos Compatibles (Opcional)</label>
+                  <input
+                    type="text"
+                    value={formData.compatibleModels || ''}
+                    onChange={e => setFormData({ ...formData, compatibleModels: e.target.value })}
+                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                    placeholder="HP LaserJet Pro M402, Epson L3110, Brother HL-L2350DW..."
                   />
                 </div>
               </div>
@@ -381,6 +394,12 @@ export function ProductCatalog({
                             {product.description}
                           </p>
                         )}
+                        {product.compatibleModels && (
+                          <p className="text-[11px] text-indigo-600 font-bold mt-1 bg-indigo-50/50 rounded-lg px-2 py-1 border border-indigo-100/50">
+                            <span className="text-slate-500 font-black uppercase text-[9px] tracking-wider block mb-0.5">Modelos Compatibles:</span>
+                            {product.compatibleModels}
+                          </p>
+                        )}
                       </div>
 
                       {/* Touch Action Buttons */}
@@ -436,21 +455,20 @@ export function ProductCatalog({
               })}
             </div>
 
-            {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[950px]">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                  <th className="px-8 py-5">Item</th>
-                  <th className="px-8 py-5">Categoría</th>
-                  <th className="px-8 py-5">
+                  <th className="px-5 py-4">Item</th>
+                  <th className="px-5 py-4">Categoría</th>
+                  <th className="px-5 py-4">
                     <span className="flex items-center gap-1 text-slate-500">
                       <Lock className="w-3 h-3" /> Costo Interno
                     </span>
                   </th>
-                  <th className="px-8 py-5">Precio Cotización</th>
-                  <th className="px-8 py-5">Margen</th>
-                  <th className="px-8 py-5 text-right">Acciones</th>
+                  <th className="px-5 py-4">Precio Cotización</th>
+                  <th className="px-5 py-4">Margen</th>
+                  <th className="px-5 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -465,7 +483,7 @@ export function ProductCatalog({
                       key={product.id} 
                       className="hover:bg-slate-50/60 transition-colors group"
                     >
-                      <td className="px-8 py-5">
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-4">
                           <div className="w-11 h-11 bg-slate-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-2xl flex items-center justify-center text-slate-400 transition-colors shrink-0">
                             <Package className="w-5 h-5" />
@@ -479,11 +497,16 @@ export function ProductCatalog({
                                 {product.description}
                               </p>
                             )}
+                            {product.compatibleModels && (
+                              <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-50/50 rounded px-2 py-0.5 border border-indigo-150/40 inline-block max-w-xs truncate" title={product.compatibleModels}>
+                                Compatibilidad: {product.compatibleModels}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-8 py-5">
+                      <td className="px-5 py-4">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100/60">
                           <Tag className="w-3 h-3" />
                           {product.category}
@@ -491,7 +514,7 @@ export function ProductCatalog({
                       </td>
 
                       {/* Costo Interno Column (Private) */}
-                      <td className="px-8 py-5">
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-1.5">
                           <Lock className="w-3 h-3 text-slate-400" />
                           <p className="text-sm font-bold text-slate-500">
@@ -502,7 +525,7 @@ export function ProductCatalog({
                       </td>
 
                       {/* Precio Público Cotización Column */}
-                      <td className="px-8 py-5">
+                      <td className="px-5 py-4">
                         <p className="text-base font-black text-slate-900 tracking-tight">
                           ${pPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </p>
@@ -510,18 +533,18 @@ export function ProductCatalog({
                       </td>
 
                       {/* Profit Margin Column */}
-                      <td className="px-8 py-5">
+                      <td className="px-5 py-4">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                           +${pProfit.toFixed(2)} ({pMargin}%)
                         </span>
                       </td>
 
-                      <td className="px-8 py-5 text-right">
+                      <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => handleEdit(product)}
-                            className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-slate-200"
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-white hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-slate-200"
                             title="Editar"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -529,7 +552,7 @@ export function ProductCatalog({
                           <button
                             type="button"
                             onClick={() => setDeletingProduct(product)}
-                            className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-slate-200"
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-slate-200"
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -565,7 +588,7 @@ export function ProductCatalog({
                 onClick={() => {
                   setIsAdding(true);
                   setEditingId(null);
-                  setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0 });
+                  setFormData({ name: '', description: '', price: 0, cost: 0, category: 'Repuesto', stock: 0, compatibleModels: '' });
                 }}
                 className="inline-flex items-center gap-3 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95"
               >

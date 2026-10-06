@@ -2,7 +2,7 @@ export interface Client {
   id?: string;
   name: string;
   phone: string;
-  email: string;
+  email?: string;
   address?: string;
 }
 
@@ -19,11 +19,16 @@ export interface QuoteItem {
   description: string;
   price: number;
   cost?: number;
+  category?: string;
+  notes?: string;
 }
 
 export interface Quote {
   id: string;
   items: QuoteItem[];
+  subtotal?: number;
+  taxRate?: number; // Percentage (e.g. 0, 8, 16)
+  taxAmount?: number;
   total: number;
   createdAt: string;
   status?: 'draft' | 'sent';
@@ -35,6 +40,9 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  cost?: number;
+  category?: string;
+  notes?: string;
 }
 
 export interface Sale {
@@ -44,6 +52,8 @@ export interface Sale {
   items: SaleItem[];
   subtotal: number;
   discount: number;
+  taxRate?: number; // Percentage (e.g. 0, 8, 16)
+  taxAmount?: number;
   total: number;
   status: 'draft' | 'sent' | 'accepted' | 'completed' | 'cancelled';
   notes?: string;
@@ -58,6 +68,7 @@ export interface Product {
   cost?: number;
   category: string;
   stock?: number;
+  compatibleModels?: string;
 }
 
 export interface CheckIn {

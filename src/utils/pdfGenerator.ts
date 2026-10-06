@@ -1,6 +1,6 @@
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { CheckIn } from '../types';
+import { CheckIn, Sale } from '../types';
 
 export const generateQuotePDF = async (element: HTMLElement, checkIn: CheckIn): Promise<string> => {
   if (!checkIn.quote) throw new Error('No se encontró la cotización');
@@ -51,3 +51,53 @@ export const generateQuotePDF = async (element: HTMLElement, checkIn: CheckIn): 
     throw new Error(err instanceof Error ? err.message : 'Error desconocido al generar el PDF');
   }
 };
+
+export const generateSalePDF = async (element: HTMLElement, sale: Sale): Promise<string> => {
+  try {
+    // 1. Prepare element for capture
+    const dataUrl = await toJpeg(element, {
+      quality: 0.95,
+      backgroundColor: '#ffffff',
+      pixelRatio: 2,
+    });
+
+    if (!dataUrl) {
+      throw new Error('No se pudo capturar el contenido de la venta/cotización');
+    }
+
+    // 2. Create PDF
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+
+    // Calculate dimensions to fit A4
+    const imgWidth = pageWidth;
+    const imgHeight = (img.height * pageWidth) / img.width;
+    
+    pdf.addImage(dataUrl, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+    
+    const isCompleted = sale.status === 'completed' || sale.status === 'accepted';
+    const prefix = isCompleted ? 'Nota-Venta' : 'Cotizacion-Refacciones';
+    const fileName = `${prefix}-${sale.id.substring(0, 8).toUpperCase()}.pdf`;
+    
+    // 3. Save/Download
+    pdf.save(fileName);
+    
+    return fileName;
+  } catch (err) {
+    console.error('Critical Sale PDF Generation Error:', err);
+    throw new Error(err instanceof Error ? err.message : 'Error desconocido al generar el PDF de la venta');
+  }
+};
+

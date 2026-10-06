@@ -106,7 +106,8 @@ export function subscribeSettings(onUpdate: (data: CompanySettings) => void) {
 export async function saveCheckInToFirestore(checkIn: CheckIn) {
   const path = `checkins/${checkIn.id}`;
   try {
-    await setDoc(doc(db, 'checkins', checkIn.id), checkIn);
+    const cleanData = JSON.parse(JSON.stringify(checkIn));
+    await setDoc(doc(db, 'checkins', checkIn.id), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -125,7 +126,8 @@ export async function deleteCheckInFromFirestore(id: string) {
 export async function saveProductToFirestore(product: Product) {
   const path = `products/${product.id}`;
   try {
-    await setDoc(doc(db, 'products', product.id), product);
+    const cleanData = JSON.parse(JSON.stringify(product));
+    await setDoc(doc(db, 'products', product.id), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -155,7 +157,8 @@ export async function clearAllProductsFromFirestore() {
 export async function saveClientToFirestore(client: Client) {
   const path = `clients/${client.id}`;
   try {
-    await setDoc(doc(db, 'clients', client.id), client);
+    const cleanData = JSON.parse(JSON.stringify(client));
+    await setDoc(doc(db, 'clients', client.id), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
@@ -174,7 +177,8 @@ export async function deleteClientFromFirestore(id: string) {
 export async function saveSaleToFirestore(sale: Sale) {
   const path = `sales/${sale.id}`;
   try {
-    await setDoc(doc(db, 'sales', sale.id), sale);
+    const cleanData = JSON.parse(JSON.stringify(sale));
+    await setDoc(doc(db, 'sales', sale.id), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

@@ -38,6 +38,7 @@ export default function App() {
     updateQuote, 
     markQuoteAsSent, 
     unlockQuote, 
+    deleteQuote,
     updateClient, 
     deleteCheckIn,
     updateNotes,
@@ -165,6 +166,16 @@ export default function App() {
       addToast('Cotización desbloqueada correctamente', 'success');
     } catch (error) {
       addToast('Error al desbloquear cotización', 'error');
+    }
+  };
+
+  const handleDeleteQuote = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
+    try {
+      await deleteQuote(checkInId, optionKey);
+      addToast(`Cotización (${optionKey === 'quote' ? 'Opción A' : 'Opción B'}) eliminada correctamente`, 'success');
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      addToast('Error al eliminar la cotización', 'error');
     }
   };
 
@@ -424,6 +435,7 @@ export default function App() {
           clients={clients}
           products={products}
           isSaving={isSaving}
+          onAddProduct={addProduct}
         />
       )}
       {currentView === 'sale-details' && selectedSaleId && (
@@ -435,7 +447,7 @@ export default function App() {
         />
       )}
       {currentView === 'reports' && (
-        <SalesSummary checkIns={checkIns} sales={sales} />
+        <SalesSummary checkIns={checkIns} sales={sales} products={products} />
       )}
       {currentView === 'settings' && (
         <CompanySettings />
@@ -450,6 +462,7 @@ export default function App() {
           onUpdateQuote={handleUpdateQuote}
           onMarkQuoteAsSent={handleMarkQuoteAsSent}
           onUnlockQuote={handleUnlockQuote}
+          onDeleteQuote={handleDeleteQuote}
           onUpdateStatus={handleUpdateStatus}
           onUpdateClient={handleUpdateClient}
           onUpdatePrinter={updatePrinter}

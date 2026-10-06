@@ -373,7 +373,7 @@ export function CheckInList({ checkIns, onViewDetails, onDelete, onUpdateStatus 
 
         {/* Desktop Table (hidden md:block) */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[10px] font-black uppercase tracking-wider text-slate-400">
                 <th className="px-5 py-3">Cliente</th>

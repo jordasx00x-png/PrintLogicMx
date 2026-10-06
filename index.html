@@ -1,6 +1,31 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <script>
+      // Suppression script for Vite HMR sandbox socket logs
+      (function() {
+        const suppress = (msg) => {
+          if (!msg || typeof msg !== 'string') return false;
+          return msg.includes('WebSocket') || msg.includes('vite') || msg.includes('HMR') || msg.includes('hmr');
+        };
+        const orgError = console.error;
+        console.error = function(...args) {
+          if (args.some(arg => suppress(String(orgError && arg && arg.stack || arg)))) return;
+          orgError.apply(console, args);
+        };
+        const orgWarn = console.warn;
+        console.warn = function(...args) {
+          if (args.some(arg => suppress(String(arg)))) return;
+          orgWarn.apply(console, args);
+        };
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e.reason && suppress(String(e.reason.message || e.reason))) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <meta name="theme-color" content="#020617" />

@@ -125,7 +125,19 @@ export function QuotePrintable({ checkIn, printRef }: QuotePrintableProps) {
             {(checkIn.quote?.items || []).map((item, index) => (
               <tr key={item.id || Math.random()} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
                 <td className="py-5 px-6 text-sm font-medium border-b" style={{ color: '#334155', borderColor: '#f1f5f9' }}>
-                  {item.description || 'Sin descripción'}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-slate-900">{item.description || 'Sin descripción'}</span>
+                    {item.category && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                  {item.notes && (
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      {item.notes}
+                    </p>
+                  )}
                 </td>
                 <td className="py-5 px-6 text-sm font-bold text-right border-b" style={{ color: '#0f172a', borderColor: '#f1f5f9' }}>
                   $ {(Number(item.price) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
@@ -136,23 +148,43 @@ export function QuotePrintable({ checkIn, printRef }: QuotePrintableProps) {
         </table>
 
         {/* Totals Section */}
-        <div className="flex justify-end mt-6">
-          <div className="w-64 space-y-3">
-            <div className="flex justify-between items-center px-2">
-              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Subtotal</span>
-              <span className="text-sm font-bold" style={{ color: '#1e293b' }}>$ {(Number(checkIn.quote?.total) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+        {(() => {
+          const quote = checkIn.quote;
+          const subtotal = quote.subtotal ?? quote.items.reduce((s, i) => s + (Number(i.price) || 0), 0);
+          const taxRate = quote.taxRate || 0;
+          const taxAmount = quote.taxAmount ?? ((subtotal * taxRate) / 100);
+          const finalTotal = quote.total;
+
+          return (
+            <div className="flex justify-end mt-6">
+              <div className="w-72 space-y-2.5">
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>Subtotal</span>
+                  <span className="text-sm font-bold font-mono" style={{ color: '#1e293b' }}>
+                    $ {subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>
+                    IVA ({taxRate}%)
+                  </span>
+                  <span className="text-sm font-bold font-mono" style={{ color: '#1e293b' }}>
+                    $ {taxAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="h-px w-full" style={{ backgroundColor: '#e2e8f0' }}></div>
+                <div className="flex justify-between items-center p-4 rounded-xl" style={{ backgroundColor: '#4f46e5' }}>
+                  <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#ffffff' }}>Total Final</span>
+                  <span className="text-xl font-black font-mono" style={{ color: '#ffffff' }}>
+                    $ {finalTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between items-center px-2">
-              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>IVA (0%)</span>
-              <span className="text-sm font-bold" style={{ color: '#1e293b' }}>$ 0.00</span>
-            </div>
-            <div className="h-px w-full" style={{ backgroundColor: '#e2e8f0' }}></div>
-            <div className="flex justify-between items-center p-4 rounded-xl" style={{ backgroundColor: '#4f46e5' }}>
-              <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#ffffff' }}>Total Neto</span>
-              <span className="text-xl font-black" style={{ color: '#ffffff' }}>$ {(Number(checkIn.quote?.total) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Signature Section */}

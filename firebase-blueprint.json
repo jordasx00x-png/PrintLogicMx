@@ -29,7 +29,8 @@
         "price": { "type": "number" },
         "cost": { "type": "number" },
         "stock": { "type": "number" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "compatibleModels": { "type": "string" }
       }
     },
     "Client": {

@@ -329,6 +329,26 @@ export function useStore(isAuthenticated: boolean = false) {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
+  const deleteQuote = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
+    const checkInToUpdate = checkIns.find(c => c.id === checkInId);
+    if (!checkInToUpdate) return;
+
+    const updatedCheckIn: CheckIn = { ...checkInToUpdate };
+    delete updatedCheckIn[optionKey];
+
+    setRawCheckIns(prev => prev.map(c => c.id === checkInId ? updatedCheckIn : c));
+
+    // Local DB
+    fetch(`/api/checkins/${checkInId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCheckIn),
+    }).catch(e => console.error(e));
+
+    // Firestore Sync
+    await saveCheckInToFirestore(updatedCheckIn);
+  };
+
   const updateClient = async (id: string, client: CheckIn['client']) => {
     const checkInToUpdate = checkIns.find(c => c.id === id);
     if (!checkInToUpdate) return;
@@ -481,6 +501,7 @@ export function useStore(isAuthenticated: boolean = false) {
     updateQuote, 
     markQuoteAsSent, 
     unlockQuote, 
+    deleteQuote,
     updateClient, 
     deleteCheckIn,
     updateNotes,
