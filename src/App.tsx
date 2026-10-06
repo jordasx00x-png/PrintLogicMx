@@ -20,7 +20,7 @@ import { useToast } from './hooks/useToast';
 import { Sale } from './types';
 
 export default function App() {
-  const { user, isAuthReady, isAuthenticated, login, loginWithGoogle, register, logout } = useAuth();
+  const { user, isAuthReady, isAuthenticated, login, logout } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -354,7 +354,7 @@ export default function App() {
   }
 
   if (!user || !isAuthenticated) {
-    return <AuthScreen onLogin={login} onGoogleLogin={loginWithGoogle} onRegister={register} />;
+    return <AuthScreen onLogin={login} />;
   }
 
   return (
