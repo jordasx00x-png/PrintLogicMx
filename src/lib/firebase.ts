@@ -35,15 +35,34 @@ export const signInWithGoogle = async () => {
     };
   } catch (error: any) {
     console.error('Google Auth error:', error);
-    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+    const code = error.code || '';
+    const msg = error.message || '';
+
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
       return {
         success: false,
+        errorCode: code,
         error: 'Inicio de sesión cancelado'
+      };
+    }
+    if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+      return {
+        success: false,
+        errorCode: 'auth/unauthorized-domain',
+        error: `El dominio '${window.location.hostname}' no está autorizado en la Consola de Firebase.`
+      };
+    }
+    if (code === 'auth/popup-blocked') {
+      return {
+        success: false,
+        errorCode: 'auth/popup-blocked',
+        error: 'El navegador bloqueó la ventana emergente de Google.'
       };
     }
     return {
       success: false,
-      error: error.message || 'Error al autenticar con Google'
+      errorCode: code,
+      error: msg || 'Error al autenticar con Google'
     };
   }
 };

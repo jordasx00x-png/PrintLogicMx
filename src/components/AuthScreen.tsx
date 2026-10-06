@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, Lock, AlertCircle, ArrowRight, Eye, EyeOff, Loader2, ShieldCheck, UserPlus, LogIn, Mail, User } from 'lucide-react';
+import { Printer, Lock, AlertCircle, ArrowRight, Eye, EyeOff, Loader2, ShieldCheck, UserPlus, LogIn, Mail, User, Copy, Check, ExternalLink } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 interface AuthScreenProps {
@@ -11,6 +11,7 @@ interface AuthScreenProps {
 export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const [loginData, setLoginData] = useState({
     email: 'admin@printfix.com',
@@ -24,21 +25,37 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
   });
 
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+
+  const handleCopyHostname = () => {
+    if (currentHostname) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handleGoogleSubmit = async () => {
     setError(null);
+    setErrorCode(null);
     setSuccessMsg(null);
     setIsGoogleLoading(true);
     try {
       const result = await onGoogleLogin();
-      if (!result.success && result.error) {
-        if (result.error.includes('unauthorized-domain')) {
-          setError(`El dominio (${window.location.hostname}) no está autorizado en Firebase. Para solucionarlo, agrégalo en la Consola de Firebase > Authentication > Settings > Authorized domains.`);
+      if (!result.success) {
+        if (result.errorCode === 'auth/unauthorized-domain' || result.error?.includes('unauthorized-domain')) {
+          setErrorCode('auth/unauthorized-domain');
+          setError(`El dominio '${currentHostname}' no está autorizado en la Consola de Firebase para inicio de sesión con Google.`);
+        } else if (result.errorCode === 'auth/popup-blocked') {
+          setErrorCode('auth/popup-blocked');
+          setError('El navegador bloqueó la ventana emergente de Google. Por favor activa las ventanas emergentes o usa correo/contraseña.');
         } else {
-          setError(result.error);
+          setError(result.error || 'Error al conectar con Google');
         }
       }
     } catch (err: any) {
@@ -48,9 +65,34 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
     }
   };
 
+  const handleDirectAdminLogin = async (emailToUse?: string) => {
+    setError(null);
+    setErrorCode(null);
+    setIsLoading(true);
+
+    const targetEmail = emailToUse || loginData.email || 'jordasx00x@gmail.com';
+    const targetPassword = targetEmail === 'jordasx00x@gmail.com' ? 'PrintLogic2026*' : (loginData.password || 'PrintLogic2026*');
+
+    try {
+      const result = await onLogin(targetEmail.trim(), targetPassword.trim());
+      if (!result.success) {
+        // Fallback to register if not existing
+        const regRes = await onRegister('Administrador', targetEmail.trim(), targetPassword.trim());
+        if (!regRes.success) {
+          setError(regRes.error || 'No se pudo iniciar sesión.');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
     setSuccessMsg(null);
     setIsLoading(true);
 
@@ -69,6 +111,7 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
     setSuccessMsg(null);
 
     if (!registerData.name.trim() || !registerData.email.trim() || !registerData.password.trim()) {
@@ -107,6 +150,7 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
       password: 'PrintLogic2026*',
     });
     setError(null);
+    setErrorCode(null);
   };
 
   return (
@@ -138,28 +182,36 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
             <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/60 text-xs text-slate-300 space-y-2">
               <p className="font-bold text-slate-200 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-                Cuenta Administrador Predeterminada
+                Cuentas de Acceso Administrador
               </p>
-              <div className="bg-slate-900/80 p-2.5 rounded-xl font-mono text-[11px] text-slate-300 space-y-1 border border-slate-800">
-                <div><span className="text-slate-500">Email:</span> admin@printfix.com</div>
-                <div><span className="text-slate-500">Clave:</span> PrintLogic2026*</div>
+              <div className="bg-slate-900/80 p-2.5 rounded-xl font-mono text-[11px] text-slate-300 space-y-1.5 border border-slate-800">
+                <div className="flex justify-between items-center">
+                  <span><span className="text-slate-500">Email:</span> jordasx00x@gmail.com</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectAdminLogin('jordasx00x@gmail.com')}
+                    className="text-[10px] bg-blue-500/20 text-blue-300 hover:bg-blue-500/40 px-2 py-0.5 rounded font-sans font-bold cursor-pointer"
+                  >
+                    Entrar
+                  </button>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-slate-800">
+                  <span><span className="text-slate-500">Email:</span> admin@printfix.com</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectAdminLogin('admin@printfix.com')}
+                    className="text-[10px] bg-blue-500/20 text-blue-300 hover:bg-blue-500/40 px-2 py-0.5 rounded font-sans font-bold cursor-pointer"
+                  >
+                    Entrar
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  fillDefaultAdmin();
-                }}
-                className="w-full mt-1 py-1.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 font-bold rounded-lg text-[11px] transition-colors border border-blue-500/30 cursor-pointer"
-              >
-                Auto-completar cuenta por defecto
-              </button>
             </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-slate-800/80 flex items-center gap-3 text-xs text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Sincronización en la nube con Firestore y autenticación local.</span>
+            <span>Sincronización en la nube con Firestore e inicio directo.</span>
           </div>
         </div>
 
@@ -171,7 +223,7 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
             <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
               <button
                 type="button"
-                onClick={() => { setMode('login'); setError(null); setSuccessMsg(null); }}
+                onClick={() => { setMode('login'); setError(null); setErrorCode(null); setSuccessMsg(null); }}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   mode === 'login'
                     ? 'bg-white text-slate-900 shadow-xs'
@@ -183,7 +235,7 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
               </button>
               <button
                 type="button"
-                onClick={() => { setMode('register'); setError(null); setSuccessMsg(null); }}
+                onClick={() => { setMode('register'); setError(null); setErrorCode(null); setSuccessMsg(null); }}
                 className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   mode === 'register'
                     ? 'bg-slate-900 text-white shadow-xs'
@@ -206,7 +258,56 @@ export function AuthScreen({ onLogin, onGoogleLogin, onRegister }: AuthScreenPro
               </p>
             </div>
 
-            {error && (
+            {/* GitHub Pages / Firebase Unauthorized Domain Warning Box */}
+            {errorCode === 'auth/unauthorized-domain' && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl text-xs space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-900 mb-1">
+                      Inicio con Google en GitHub Pages
+                    </p>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Para habilitar el botón emergente de Google en tu dominio (<span className="font-mono font-bold">{currentHostname}</span>):
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white/80 p-2.5 rounded-xl border border-amber-200 font-mono text-[11px] flex items-center justify-between gap-2">
+                  <span className="truncate font-semibold text-slate-800">{currentHostname}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyHostname}
+                    className="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-sans font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                    <span>{copied ? '¡Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
+
+                <ol className="list-decimal list-inside text-[11px] text-amber-800 space-y-1 pl-1">
+                  <li>Ve a <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="underline font-bold inline-flex items-center gap-0.5">Consola de Firebase <ExternalLink className="w-3 h-3" /></a></li>
+                  <li>Selecciona <b>Authentication</b> &gt; <b>Settings</b> &gt; <b>Authorized domains</b></li>
+                  <li>Haz clic en <b>Add Domain</b> y pega <span className="font-mono font-bold">{currentHostname}</span></li>
+                </ol>
+
+                <div className="pt-2 border-t border-amber-200/80">
+                  <p className="text-[11px] font-bold text-amber-900 mb-2">
+                    ¿Quieres entrar ya sin esperar a configurar Firebase?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectAdminLogin('jordasx00x@gmail.com')}
+                    className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Entrar como Administrador Principal (jordasx00x@gmail.com)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {error && errorCode !== 'auth/unauthorized-domain' && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2.5 text-xs font-semibold">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>

@@ -37,11 +37,15 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string; errorCode?: string }> => {
     try {
       const googleRes = await signInWithGoogle();
       if (!googleRes.success || !googleRes.user) {
-        return { success: false, error: googleRes.error || 'No se pudo iniciar sesión con Google' };
+        return {
+          success: false,
+          error: googleRes.error || 'No se pudo iniciar sesión con Google',
+          errorCode: googleRes.errorCode
+        };
       }
 
       // Sync user profile to backend session
