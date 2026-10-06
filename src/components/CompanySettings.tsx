@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Upload, Building, Phone, Mail, Globe, Image as ImageIcon } from 'lucide-react';
+import { Save, Upload, Building, Phone, Mail, Globe, Image as ImageIcon, ShieldCheck, UserPlus, User } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../hooks/useAuth';
 
 export function CompanySettings() {
   const { settings, updateSettings, loading } = useSettings();
+  const { user, register } = useAuth();
   const { addToast } = useToast();
   const [formData, setFormData] = useState(settings);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [newAdmin, setNewAdmin] = useState({ name: '', email: '', password: '' });
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -48,6 +53,28 @@ export function CompanySettings() {
       addToast('Error al guardar la configuración', 'error');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.password) {
+      addToast('Por favor completa todos los campos del nuevo administrador', 'error');
+      return;
+    }
+    setIsCreatingAdmin(true);
+    try {
+      const result = await register(newAdmin.name, newAdmin.email, newAdmin.password);
+      if (result.success) {
+        addToast(`Administrador ${newAdmin.name} registrado con éxito`, 'success');
+        setNewAdmin({ name: '', email: '', password: '' });
+      } else {
+        addToast(result.error || 'Error al crear administrador', 'error');
+      }
+    } catch (e) {
+      addToast('Error al procesar el registro', 'error');
+    } finally {
+      setIsCreatingAdmin(false);
     }
   };
 
@@ -190,6 +217,85 @@ export function CompanySettings() {
                 placeholder="Calle, Número, Colonia, Ciudad, Estado"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
               />
+            </div>
+          </div>
+        </section>
+
+        {/* Admin Accounts Section */}
+        <section className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+              Cuenta y Usuarios Administradores
+            </h2>
+          </div>
+
+          {/* Current Active Account */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black flex items-center justify-center text-sm">
+                {user?.name?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div>
+                <p className="text-sm font-black text-slate-900">{user?.name || 'Administrador'}</p>
+                <p className="text-xs text-slate-500 font-medium">{user?.email || 'admin@printfix.com'}</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
+              Sesión Activa
+            </span>
+          </div>
+
+          {/* Add New Admin Form */}
+          <div className="pt-4 border-t border-slate-100">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-slate-400" />
+              Crear Nuevo Administrador
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre</label>
+                <input
+                  type="text"
+                  value={newAdmin.name}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, name: e.target.value })}
+                  placeholder="Ej. Técnico Principal"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Correo Electrónico</label>
+                <input
+                  type="email"
+                  value={newAdmin.email}
+                  onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                  placeholder="nuevo@admin.com"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contraseña</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={newAdmin.password}
+                    onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold focus:bg-white focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateAdmin}
+                    disabled={isCreatingAdmin}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingAdmin ? 'Guardando...' : 'Crear'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>

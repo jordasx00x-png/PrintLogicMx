@@ -57,17 +57,24 @@ import { initialProducts } from './src/data/initialProducts.ts';
 import { moreProducts } from './src/data/moreProducts.ts';
 import { productsPart3 } from './src/data/productsPart3.ts';
 
-// Seed default users if empty
-const userCount = db.prepare('SELECT count(*) as count FROM users').get() as { count: number };
-if (userCount.count === 0) {
-  const insertUser = db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)');
-  try {
-    insertUser.run('admin-id', 'Administrador', 'admin@printfix.com', 'PrintLogic2026*');
-    console.log('Seeded default users');
-  } catch (e) {
-    console.log('Users already seeded or error seeding:', e);
+// Seed default admin users if empty or missing
+const seedAdmins = [
+  { id: 'admin-id-1', name: 'Administrador PrintFix', email: 'admin@printfix.com', password: 'PrintLogic2026*' },
+  { id: 'admin-id-2', name: 'Administrador Principal', email: 'jordasx00x@gmail.com', password: 'PrintLogic2026*' }
+];
+
+seedAdmins.forEach(admin => {
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(admin.email);
+  if (!existing) {
+    db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)').run(
+      admin.id, admin.name, admin.email, admin.password
+    );
+    console.log(`Seeded admin user: ${admin.email}`);
+  } else {
+    // Ensure password is updated
+    db.prepare('UPDATE users SET password = ? WHERE email = ?').run(admin.password, admin.email);
   }
-}
+});
 
 // Clear products on initial setup as requested
 try {
@@ -120,9 +127,47 @@ async function startServer() {
     }
   });
 
-  // Registration disabled - Single account system
+  // Registration of new admin accounts
   app.post('/api/auth/register', (req, res) => {
-    res.status(403).json({ success: false, error: 'El registro de nuevos usuarios está deshabilitado. Contacte al administrador.' });
+    try {
+      const { name, email, password } = req.body;
+      if (!email || !password || !name) {
+        return res.status(400).json({ success: false, error: 'Por favor completa todos los campos (Nombre, Email, Contraseña).' });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPassword = password.trim();
+      const cleanName = name.trim();
+
+      if (cleanPassword.length < 4) {
+        return res.status(400).json({ success: false, error: 'La contraseña debe tener al menos 4 caracteres.' });
+      }
+
+      const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(cleanEmail) as any;
+      if (existingUser) {
+        // If user exists, update password and name
+        db.prepare('UPDATE users SET name = ?, password = ? WHERE email = ?').run(cleanName, cleanPassword, cleanEmail);
+        console.log(`Updated existing user password for: ${cleanEmail}`);
+        return res.json({
+          success: true,
+          user: { id: existingUser.id, name: cleanName, email: cleanEmail }
+        });
+      }
+
+      const newUserId = `admin_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)').run(
+        newUserId, cleanName, cleanEmail, cleanPassword
+      );
+
+      console.log(`Registered new admin user: ${cleanEmail}`);
+      res.json({
+        success: true,
+        user: { id: newUserId, name: cleanName, email: cleanEmail }
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(500).json({ success: false, error: error.message || 'Error al registrar usuario' });
+    }
   });
 
   // Google Login Endpoint

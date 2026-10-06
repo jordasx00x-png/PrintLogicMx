@@ -354,7 +354,7 @@ export default function App() {
   }
 
   if (!user || !isAuthenticated) {
-    return <AuthScreen onLogin={login} onGoogleLogin={loginWithGoogle} />;
+    return <AuthScreen onLogin={login} onGoogleLogin={loginWithGoogle} onRegister={register} />;
   }
 
   return (
