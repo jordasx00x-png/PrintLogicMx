@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { CheckIn, Quote, QuoteItem, Product } from '../types';
-import { ArrowLeft, Printer, User, FileText, Plus, Trash2, Send, CheckCircle2, Edit2, Save, History, Lock, Unlock, Clock, Search, AlertCircle, Download, QrCode, Barcode, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Printer, User, FileText, Plus, Trash2, Send, CheckCircle2, Edit2, Save, History, Lock, Unlock, Clock, Search, AlertCircle, Download, QrCode, Barcode, ShieldCheck, X } from 'lucide-react';
 import { QuoteSheet } from './QuoteSheet';
 import { QuotePrintable } from './QuotePrintable';
 import { QuoteQRModal } from './QuoteQRModal';
@@ -11,18 +11,19 @@ interface CheckInDetailsProps {
   checkIns?: CheckIn[];
   products?: Product[];
   onBack: () => void;
-  onAddQuote: (checkInId: string, quote: Omit<Quote, 'id' | 'createdAt' | 'status'>) => void;
-  onUpdateQuote: (checkInId: string, quote: Quote) => void;
-  onMarkQuoteAsSent: (checkInId: string) => void;
-  onUnlockQuote: (checkInId: string) => void;
+  onAddQuote: (checkInId: string, quote: Omit<Quote, 'id' | 'createdAt' | 'status'>, optionKey: 'quote' | 'quoteB') => void;
+  onUpdateQuote: (checkInId: string, quote: Quote, optionKey: 'quote' | 'quoteB') => void;
+  onMarkQuoteAsSent: (checkInId: string, optionKey: 'quote' | 'quoteB') => void;
+  onUnlockQuote: (checkInId: string, optionKey: 'quote' | 'quoteB') => void;
   onUpdateStatus: (id: string, status: CheckIn['printer']['status']) => void;
   onUpdateClient: (id: string, client: CheckIn['client']) => void;
   onUpdatePrinter: (id: string, printer: CheckIn['printer']) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
+  onAddProduct?: (product: Omit<Product, 'id'>) => Promise<void> | void;
 }
 
-export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onUpdateStatus, onUpdateClient, onUpdatePrinter, onUpdateNotes, onDelete }: CheckInDetailsProps) {
+export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onUpdateStatus, onUpdateClient, onUpdatePrinter, onUpdateNotes, onDelete, onAddProduct }: CheckInDetailsProps) {
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isEditingClient, setIsEditingClient] = useState(false);
@@ -36,8 +37,10 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
   const [editPrinterForm, setEditPrinterForm] = useState(checkIn.printer || { brand: '', model: '', serialNumber: '', problem: '', status: 'Ingresado' });
   const [notes, setNotes] = useState(checkIn.notes || '');
   const [quoteItems, setQuoteItems] = useState<Omit<QuoteItem, 'id'>[]>([
-    { description: '', price: 0 }
+    { description: '', price: 0, cost: 0 }
   ]);
+  const [activeQuoteOption, setActiveQuoteOption] = useState<'quote' | 'quoteB'>('quote');
+  const [activeShareQuote, setActiveShareQuote] = useState<'quote' | 'quoteB'>('quote');
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -49,17 +52,17 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     const lastItem = quoteItems[quoteItems.length - 1];
     if (quoteItems.length === 1 && !lastItem.description && lastItem.price === 0) {
       const newItems = [...quoteItems];
-      newItems[0] = { description: product.name, price: product.price };
+      newItems[0] = { description: product.name, price: product.price, cost: product.cost || 0 };
       setQuoteItems(newItems);
     } else {
-      setQuoteItems([...quoteItems, { description: product.name, price: product.price }]);
+      setQuoteItems([...quoteItems, { description: product.name, price: product.price, cost: product.cost || 0 }]);
     }
     setShowProductPicker(false);
     setProductSearch('');
   };
 
   const handleAddQuoteItem = () => {
-    setQuoteItems([...quoteItems, { description: '', price: 0 }]);
+    setQuoteItems([...quoteItems, { description: '', price: 0, cost: 0 }]);
   };
 
   const handleRemoveQuoteItem = (index: number) => {
@@ -80,15 +83,17 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
   const totalQuote = quoteItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
 
-  const handleEditQuote = () => {
-    if (checkIn.quote?.items && Array.isArray(checkIn.quote.items)) {
-      // Ensure we have a clean copy of the items with all required fields
-      const itemsCopy = checkIn.quote.items.map(item => ({
+  const handleEditQuote = (optionKey: 'quote' | 'quoteB' = 'quote') => {
+    const targetQuote = checkIn[optionKey];
+    if (targetQuote?.items && Array.isArray(targetQuote.items)) {
+      const itemsCopy = targetQuote.items.map(item => ({
         id: item.id || Math.random().toString(36).substring(2, 15),
         description: item.description || '',
-        price: Number(item.price) || 0
+        price: Number(item.price) || 0,
+        cost: Number(item.cost) || 0
       }));
       setQuoteItems(itemsCopy);
+      setActiveQuoteOption(optionKey);
       setIsEditingQuote(true);
     }
   };
@@ -100,7 +105,8 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
         .filter(item => item && typeof item === 'object')
         .map(item => ({
           description: (item.description || '').trim(),
-          price: Number(item.price) || 0
+          price: Number(item.price) || 0,
+          cost: Number(item.cost) || 0
         }))
         .filter(item => item.description !== '' && item.price > 0);
 
@@ -109,17 +115,38 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
         return;
       }
 
-      const total = validItems.reduce((sum, item) => sum + item.price, 0);
+      // Check if products should be auto-saved to catalog
+      validItems.forEach(async (item) => {
+        const itemLower = item.description.trim().toLowerCase();
+        const exists = products.some(p => p.name.trim().toLowerCase() === itemLower);
+        if (!exists && onAddProduct) {
+          try {
+            await onAddProduct({
+              name: item.description.trim(),
+              price: item.price,
+              cost: item.cost,
+              category: 'Servicios/Refacciones',
+              description: 'Auto-guardado desde cotización'
+            });
+            console.log(`Auto-guardado en catálogo: ${item.description}`);
+          } catch (e) {
+            console.error('Error auto-saving item to product catalog:', e);
+          }
+        }
+      });
 
-      if (isEditingQuote && checkIn?.quote) {
+      const total = validItems.reduce((sum, item) => sum + item.price, 0);
+      const targetQuote = checkIn[activeQuoteOption];
+
+      if (isEditingQuote && targetQuote) {
         onUpdateQuote(checkIn.id, {
-          ...checkIn.quote,
+          ...targetQuote,
           items: validItems.map(item => ({
             id: Math.random().toString(36).substring(2, 15),
             ...item
           })) as QuoteItem[],
           total
-        });
+        }, activeQuoteOption);
         setIsEditingQuote(false);
       } else {
         onAddQuote(checkIn.id, {
@@ -128,7 +155,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
             ...item
           })) as QuoteItem[],
           total
-        });
+        }, activeQuoteOption);
         setIsCreatingQuote(false);
       }
       
@@ -169,12 +196,19 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const hiddenPrintRef = useRef<HTMLDivElement>(null);
 
-  const handleDownloadPdf = async () => {
-    if (!checkIn.quote || !hiddenPrintRef.current) return;
+  const handleDownloadPdf = async (optionKey: 'quote' | 'quoteB' = 'quote') => {
+    const targetQuote = checkIn[optionKey];
+    if (!targetQuote || !hiddenPrintRef.current) return;
     try {
       setIsGeneratingPdf(true);
+      setActiveShareQuote(optionKey);
       await new Promise(resolve => setTimeout(resolve, 300));
-      await generateQuotePDF(hiddenPrintRef.current, checkIn);
+      
+      const checkInForPrinting = {
+        ...checkIn,
+        quote: targetQuote
+      };
+      await generateQuotePDF(hiddenPrintRef.current, checkInForPrinting);
     } catch (error) {
       console.error('Error generating PDF:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
@@ -184,28 +218,30 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     }
   };
 
-  const handleSendWhatsApp = async () => {
-    if (!checkIn.quote || !hiddenPrintRef.current) return;
+  const handleSendWhatsApp = async (optionKey: 'quote' | 'quoteB' = 'quote') => {
+    const targetQuote = checkIn[optionKey];
+    if (!targetQuote || !hiddenPrintRef.current) return;
 
     try {
       setIsGeneratingPdf(true);
-      
-      // Small delay to ensure hidden area is rendered and layout is stable
+      setActiveShareQuote(optionKey);
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // 1. Generate and download PDF
+      const checkInForPrinting = {
+        ...checkIn,
+        quote: targetQuote
+      };
       if (!hiddenPrintRef.current) throw new Error('El área de impresión no está lista');
-      await generateQuotePDF(hiddenPrintRef.current, checkIn);
+      await generateQuotePDF(hiddenPrintRef.current, checkInForPrinting);
       
-      // 2. Mark as sent
-      if (checkIn.quote.status !== 'sent') {
-        onMarkQuoteAsSent(checkIn.id);
+      if (targetQuote.status !== 'sent') {
+        onMarkQuoteAsSent(checkIn.id, optionKey);
       }
 
-      // 3. Open WhatsApp with instructions
       const phone = (checkIn.client?.phone || '').replace(/\D/g, '');
+      const optionLabel = optionKey === 'quote' ? 'A (Económica / Estándar)' : 'B (Alternativa / Premium)';
       const message = `Hola ${checkIn.client?.name || ''},%0A%0A` +
-        `Le adjunto la cotización PDF para la reparación de su impresora ${checkIn.printer?.brand || ''} ${checkIn.printer?.model || ''}.%0A%0A` +
+        `Le adjunto la cotización para la opción ${optionLabel} de la reparación de su impresora ${checkIn.printer?.brand || ''} ${checkIn.printer?.model || ''}.%0A%0A` +
         `*Por favor, adjunte el archivo PDF que se acaba de descargar en este chat.*%0A%0A` +
         `Quedamos a su disposición para cualquier consulta.`;
 
@@ -215,7 +251,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     } catch (error) {
       console.error('Error sending WhatsApp PDF:', error);
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
-      alert(`Error al generar el PDF para WhatsApp: ${errorMsg}\n\nPor favor, intenta descargar el PDF manualmente desde la "Hoja de Cotización" e intenta de nuevo.`);
+      alert(`Error al generar el PDF para WhatsApp: ${errorMsg}\n\nPor favor, intenta descargar el PDF manualmente e intenta de nuevo.`);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -252,23 +288,251 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  if (isCreatingQuote || isEditingQuote) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-4 pb-20 animate-in fade-in zoom-in-95 duration-200">
+        {/* Compact Header Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 px-5 py-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setIsCreatingQuote(false);
+                setIsEditingQuote(false);
+              }}
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"
+              title="Volver"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md border border-indigo-100">
+                Nueva Pantalla de Trabajo
+              </span>
+              <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight mt-1">
+                {isEditingQuote ? 'Editar' : 'Crear'} Cotización de Servicio
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">
+                Cliente: <span className="font-bold text-slate-700">{checkIn.client?.name}</span> | Equipo: <span className="font-bold text-slate-700">{checkIn.printer?.brand} {checkIn.printer?.model}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end md:self-auto">
+            <button
+              onClick={() => {
+                setIsCreatingQuote(false);
+                setIsEditingQuote(false);
+              }}
+              className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveQuote}
+              className="btn-tactile px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>Guardar Cotización</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Workspace */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Column 1: Items List (Spans 2) */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-sm font-bold text-slate-900">Conceptos y Precios de la Cotización</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddQuoteItem}
+                  className="btn-tactile px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-100 flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Agregar Concepto</span>
+                </button>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-3">
+                {quoteItems.map((item, index) => (
+                  <div key={index} className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/60 flex items-start gap-3 relative group">
+                    <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-xs font-mono font-bold flex items-center justify-center shrink-0 mt-2">
+                      {index + 1}
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 flex-1">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Descripción del Concepto o Servicio *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={item.description || ''}
+                          onChange={(e) => handleQuoteItemChange(index, 'description', e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                          placeholder="Ej. Diagnóstico general, Cambio de rodillo de arrastre..."
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Costo para Mí
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.cost || ''}
+                            onChange={(e) => handleQuoteItemChange(index, 'cost', parseFloat(e.target.value) || 0)}
+                            className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-right text-emerald-600 font-mono"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Precio al Cliente *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            required
+                            value={item.price || ''}
+                            onChange={(e) => handleQuoteItemChange(index, 'price', parseFloat(e.target.value) || 0)}
+                            className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-right text-indigo-600 font-mono"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {quoteItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveQuoteItem(index)}
+                        className="p-1.5 bg-white hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-200 rounded-xl transition-all cursor-pointer mt-1.5 shrink-0"
+                        title="Eliminar concepto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Total Box */}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Cotizado</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Suma de todos los conceptos</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-3xl font-black text-indigo-600 tracking-tighter">
+                    ${totalQuote.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Column 2: Catalog Quick Finder (Spans 1) */}
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4 max-h-[600px] flex flex-col">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 shrink-0">
+                <div className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-bold">
+                  <Search className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">Agregar del Catálogo</h2>
+                  <p className="text-[10px] text-slate-400 font-medium">Toque para agregar instantáneamente</p>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar refacciones o servicios..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              {/* Catalog Items list */}
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+                {filteredProducts.length > 0 ? (
+                  filteredProducts.map(product => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => handleAddProductToQuote(product)}
+                      className="w-full p-2.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-indigo-50/80 active:scale-98 transition-all text-left flex items-center justify-between gap-3 group"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-900 truncate">
+                          {product.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-semibold truncate">
+                          {product.category}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black text-indigo-600">
+                          ${product.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </p>
+                        <span className="text-[9px] font-bold text-slate-400">Stock: {product.stock}</span>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-slate-400 space-y-2">
+                    <Barcode className="w-8 h-8 mx-auto text-slate-300" />
+                    <p className="text-[11px] font-bold">No se encontraron refacciones</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 md:space-y-10 pb-20 print:max-w-none print:space-y-0">
+    <div className="max-w-6xl mx-auto space-y-4 pb-16 print:max-w-none print:space-y-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden bg-white rounded-2xl border border-slate-200/80 px-5 py-3 shadow-xs">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white border border-slate-200/80 rounded-2xl text-slate-500 hover:text-slate-900 active:scale-95 transition-all shadow-xs cursor-pointer"
+            className="min-h-[40px] min-w-[40px] flex items-center justify-center bg-slate-50 border border-slate-200/80 rounded-xl text-slate-500 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
             title="Volver"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight truncate leading-tight">
               {checkIn.printer?.brand} {checkIn.printer?.model}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 font-mono">
+            <p className="text-[10px] text-slate-400 font-mono font-bold leading-none mt-0.5">
               Folio: #{checkIn.id.slice(0, 8).toUpperCase()}
             </p>
           </div>
@@ -280,20 +544,19 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
             <div className="flex items-center gap-1.5 sm:hidden">
               <a
                 href={`tel:${checkIn.client.phone.replace(/\s+/g, '')}`}
-                className="min-h-[42px] min-w-[42px] bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center transition-all"
+                className="min-h-[38px] px-3 bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-200/60 rounded-xl flex items-center justify-center transition-all text-xs font-bold"
                 title="Llamar"
               >
-                <Clock className="hidden" /> {/* dummy */}
-                <span className="text-xs font-bold">Tel</span>
+                Llamar
               </a>
               <a
                 href={`https://wa.me/${checkIn.client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${checkIn.client.name}, le contactamos de PrintFix sobre su equipo ${checkIn.printer.brand} ${checkIn.printer.model} (Folio #${checkIn.id.slice(0, 8).toUpperCase()}).`)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="min-h-[42px] px-3 bg-emerald-50 active:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1 transition-all"
+                className="min-h-[38px] px-3 bg-emerald-50 active:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1 transition-all"
                 title="WhatsApp"
               >
-                <span>WA</span>
+                WhatsApp
               </a>
             </div>
           )}
@@ -302,7 +565,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
             <select
               value={checkIn.printer?.status || 'Ingresado'}
               onChange={(e) => onUpdateStatus(checkIn.id, e.target.value as any)}
-              className={`w-full sm:w-auto min-h-[44px] text-xs font-black uppercase tracking-wider rounded-xl px-4 py-2.5 border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all pr-8 ${getStatusStyles(checkIn.printer?.status || 'Ingresado')}`}
+              className={`w-full sm:w-auto min-h-[38px] text-xs font-black uppercase tracking-wider rounded-xl px-4 py-1.5 border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all pr-8 ${getStatusStyles(checkIn.printer?.status || 'Ingresado')}`}
             >
               <option value="Ingresado">Ingresado</option>
               <option value="Cotizado">Cotizado</option>
@@ -315,7 +578,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-red-600 active:bg-red-50 border border-transparent rounded-xl transition-all cursor-pointer shrink-0"
+            className="min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-400 hover:text-red-600 active:bg-red-50 border border-slate-100 rounded-xl transition-all cursor-pointer shrink-0"
             title="Eliminar ingreso"
           >
             <Trash2 className="w-4 h-4" />
@@ -355,610 +618,556 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-10 print:hidden">
-        {/* Left Column: Details */}
-        <div className="lg:col-span-2 space-y-6 md:space-y-10">
-          {/* Client Info */}
-          <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-indigo-600" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Información del Cliente</h2>
-              </div>
-              {!isEditingClient && (
-                <button
-                  onClick={() => {
-                    setEditClientForm(checkIn.client);
-                    setIsEditingClient(true);
-                  }}
-                  className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all"
-                  title="Editar cliente"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            
-            {isEditingClient ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre</label>
-                    <input
-                      type="text"
-                      value={editClientForm.name}
-                      onChange={e => setEditClientForm({...editClientForm, name: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Teléfono</label>
-                    <input
-                      type="text"
-                      value={editClientForm.phone}
-                      onChange={e => setEditClientForm({...editClientForm, phone: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Correo</label>
-                    <input
-                      type="email"
-                      value={editClientForm.email}
-                      onChange={e => setEditClientForm({...editClientForm, email: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Dirección</label>
-                    <input
-                      type="text"
-                      value={editClientForm.address || ''}
-                      onChange={e => setEditClientForm({...editClientForm, address: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    onClick={() => setIsEditingClient(false)}
-                    className="px-5 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSaveClient}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-100 transition-all"
-                  >
-                    <Save className="w-4 h-4" />
-                    Guardar Cambios
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Nombre del Cliente</p>
-                  <p className="text-lg font-black text-slate-900">{checkIn.client?.name || 'N/A'}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Contacto Directo</p>
-                  <p className="text-lg font-black text-slate-900">{checkIn.client?.phone || 'N/A'}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Email</p>
-                  <p className="text-sm font-bold text-slate-600 truncate">{checkIn.client?.email || 'N/A'}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Ubicación</p>
-                  <p className="text-sm font-bold text-slate-600">{checkIn.client?.address || 'No especificada'}</p>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Printer Info */}
-          <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center shrink-0">
-                  <Printer className="w-6 h-6 text-emerald-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Detalles del Equipo</h2>
-                  <p className="text-xs text-slate-400 font-medium">Especificaciones y rastreo de número de serie</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {checkIn.printer?.serialNumber && !isEditingPrinter && (
-                  <span className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 text-xs font-black rounded-xl border border-emerald-100/80 shadow-sm">
-                    <Barcode className="w-4 h-4 text-emerald-600" />
-                    S/N: {checkIn.printer.serialNumber}
-                  </span>
-                )}
-                {!isEditingPrinter && (
-                  <button
-                    onClick={() => {
-                      setEditPrinterForm(checkIn.printer);
-                      setIsEditingPrinter(true);
-                    }}
-                    className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all"
-                    title="Editar equipo"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {isEditingPrinter ? (
-              <div className="space-y-6 mb-8">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Marca</label>
-                    <input
-                      type="text"
-                      value={editPrinterForm.brand}
-                      onChange={e => setEditPrinterForm({...editPrinterForm, brand: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Modelo</label>
-                    <input
-                      type="text"
-                      value={editPrinterForm.model}
-                      onChange={e => setEditPrinterForm({...editPrinterForm, model: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Número de Serie (Opcional)</label>
-                    <input
-                      type="text"
-                      value={editPrinterForm.serialNumber || ''}
-                      onChange={e => setEditPrinterForm({...editPrinterForm, serialNumber: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all uppercase tracking-wider"
-                      placeholder="Sin número de serie"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setEditPrinterForm(checkIn.printer);
-                      setIsEditingPrinter(false);
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSavePrinter}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-100 transition-all"
-                  >
-                    <Save className="w-4 h-4" />
-                    Guardar Cambios
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Marca</p>
-                  <p className="text-lg font-black text-slate-900">{checkIn.printer?.brand || 'N/A'}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Modelo</p>
-                  <p className="text-lg font-black text-slate-900">{checkIn.printer?.model || 'N/A'}</p>
-                </div>
-                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Número de Serie</p>
-                  <p className="text-sm font-black text-slate-900 uppercase tracking-wider font-mono">
-                    {checkIn.printer?.serialNumber || 'Sin Registrar'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Serial Number Past Warranty History */}
-            {serialHistory.length > 0 && (
-              <div className="mb-8 p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-[2rem] border border-amber-200/80 space-y-4">
+      {/* Main Grid: Multi-panel compact view to see everything on screen */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch print:hidden">
+        {/* Left Columns: General Info (Client & Printer Details, Notes, and History) */}
+        <div className="lg:col-span-2 space-y-4 flex flex-col justify-between">
+          
+          {/* Card 1: Integrated Client & Equipment Specs Side-By-Side */}
+          <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Side: Client Info */}
+              <div className="space-y-4 pr-0 md:pr-4 md:border-r border-slate-100 flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-amber-600" />
-                    <h3 className="text-sm font-black text-amber-900">
-                      Historial por Número de Serie ({serialHistory.length} reingreso{serialHistory.length > 1 ? 's' : ''})
-                    </h3>
+                    <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
+                      <User className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <h3 className="font-black text-slate-900 tracking-tight text-sm">Información del Cliente</h3>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/80 px-2.5 py-1 rounded-lg">
-                    S/N: {checkIn.printer?.serialNumber}
-                  </span>
+                  {!isEditingClient && (
+                    <button
+                      onClick={() => {
+                        setEditClientForm(checkIn.client);
+                        setIsEditingClient(true);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
+                      title="Editar cliente"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-3">
-                  {serialHistory.map((past, idx) => {
-                    const daysAgo = Math.floor((new Date().getTime() - new Date(past.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-                    return (
-                      <div key={past.id || idx} className="p-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-amber-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-slate-900">Ingresado: {new Date(past.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                            <span className="font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
-                              {daysAgo === 0 ? 'Registrado hoy' : `Hace ${daysAgo} días`}
-                            </span>
-                          </div>
-                          <p className="text-slate-600 mt-1 font-medium">
-                            <span className="font-bold text-slate-800">Falla:</span> {past.printer.problem}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getStatusStyles(past.printer.status)}`}>
-                            {past.printer.status}
-                          </span>
-                        </div>
+                {isEditingClient ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre</label>
+                      <input
+                        type="text"
+                        value={editClientForm.name}
+                        onChange={e => setEditClientForm({...editClientForm, name: e.target.value})}
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Teléfono</label>
+                        <input
+                          type="text"
+                          value={editClientForm.phone}
+                          onChange={e => setEditClientForm({...editClientForm, phone: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 ml-1">
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Falla Reportada Actual</p>
-              </div>
-              <div className="bg-slate-900 rounded-[2rem] p-8 text-slate-300 text-sm font-medium leading-relaxed shadow-xl">
-                {checkIn.printer?.problem || 'No especificado'}
-              </div>
-            </div>
-          </section>
-
-          {/* Internal Notes */}
-          <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center">
-                  <History className="w-6 h-6 text-amber-600" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Notas de Seguimiento</h2>
-              </div>
-              {!isEditingNotes && (
-                <button
-                  onClick={() => setIsEditingNotes(true)}
-                  className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            
-            {isEditingNotes ? (
-              <div className="space-y-6">
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-[2rem] text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none h-40 resize-none transition-all"
-                  placeholder="Agrega notas sobre el progreso de la reparación..."
-                />
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      setNotes(checkIn.notes || '');
-                      setIsEditingNotes(false);
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => {
-                      onUpdateNotes(checkIn.id, notes);
-                      setIsEditingNotes(false);
-                    }}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-100 transition-all"
-                  >
-                    <Save className="w-4 h-4" />
-                    Guardar Notas
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-slate-50 rounded-[2rem] p-8 text-sm text-slate-600 font-medium border border-slate-100 min-h-[120px] leading-relaxed">
-                {checkIn.notes ? (
-                  <p className="whitespace-pre-wrap">{checkIn.notes}</p>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Correo</label>
+                        <input
+                          type="email"
+                          value={editClientForm.email}
+                          onChange={e => setEditClientForm({...editClientForm, email: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Dirección</label>
+                      <input
+                        type="text"
+                        value={editClientForm.address || ''}
+                        onChange={e => setEditClientForm({...editClientForm, address: e.target.value})}
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={() => setIsEditingClient(false)}
+                        className="px-3 py-1 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSaveClient}
+                        className="flex items-center gap-1 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <p className="text-slate-400 italic">No hay notas registradas para este equipo.</p>
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex justify-between items-center">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Nombre del Cliente</p>
+                        <p className="text-sm font-black text-slate-900">{checkIn.client?.name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100 flex flex-col justify-between">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Contacto Directo</p>
+                          <p className="text-xs font-black text-slate-900">{checkIn.client?.phone || 'N/A'}</p>
+                        </div>
+                        {checkIn.client?.phone && (
+                          <div className="flex gap-1 mt-2">
+                            <a
+                              href={`tel:${checkIn.client.phone.replace(/\s+/g, '')}`}
+                              className="px-2 py-0.5 bg-slate-200/70 hover:bg-slate-200 text-slate-700 rounded-md text-[9px] font-bold flex items-center gap-1 transition-all"
+                            >
+                              Llamar
+                            </a>
+                            <a
+                              href={`https://wa.me/${checkIn.client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${checkIn.client.name}, le contactamos de PrintFix sobre su equipo ${checkIn.printer.brand} ${checkIn.printer.model} (Folio #${checkIn.id.slice(0, 8).toUpperCase()}).`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[9px] font-black flex items-center gap-1 transition-all"
+                            >
+                              WA
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Email</p>
+                        <p className="text-xs font-bold text-slate-600 truncate">{checkIn.client?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Ubicación</p>
+                      <p className="text-xs font-bold text-slate-600 truncate">{checkIn.client?.address || 'No registrada'}</p>
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
+
+              {/* Right Side: Equipment Info */}
+              <div className="space-y-4 pl-0 md:pl-2 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center">
+                      <Printer className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <h3 className="font-black text-slate-900 tracking-tight text-sm">Detalles del Equipo</h3>
+                  </div>
+                  {!isEditingPrinter && (
+                    <button
+                      onClick={() => {
+                        setEditPrinterForm(checkIn.printer);
+                        setIsEditingPrinter(true);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
+                      title="Editar equipo"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {isEditingPrinter ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Marca</label>
+                        <input
+                          type="text"
+                          value={editPrinterForm.brand}
+                          onChange={e => setEditPrinterForm({...editPrinterForm, brand: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Modelo</label>
+                        <input
+                          type="text"
+                          value={editPrinterForm.model}
+                          onChange={e => setEditPrinterForm({...editPrinterForm, model: e.target.value})}
+                          className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Número de Serie</label>
+                      <input
+                        type="text"
+                        value={editPrinterForm.serialNumber || ''}
+                        onChange={e => setEditPrinterForm({...editPrinterForm, serialNumber: e.target.value})}
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all uppercase"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        onClick={() => setIsEditingPrinter(false)}
+                        className="px-3 py-1 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleSavePrinter}
+                        className="flex items-center gap-1 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Marca / Modelo</p>
+                        <p className="text-xs font-black text-slate-900 truncate">{checkIn.printer?.brand} {checkIn.printer?.model}</p>
+                      </div>
+                      <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Número de Serie</p>
+                        <p className="text-xs font-black text-slate-900 font-mono truncate uppercase">
+                          {checkIn.printer?.serialNumber || 'Sin Registrar'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800 flex flex-col justify-between min-h-[96px]">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Problema Reportado</p>
+                          <span className="text-[8px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase tracking-wider">Activo</span>
+                        </div>
+                        <p className="text-xs font-medium text-slate-200 leading-relaxed italic line-clamp-3">
+                          "{checkIn.printer?.problem || 'No especificado'}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+            </div>
           </section>
+
+          {/* Card 2: Tracking Notes & Serial Re-entry History Side-by-Side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Tracking Notes */}
+            <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-amber-50 rounded-lg flex items-center justify-center">
+                    <History className="w-3.5 h-3.5 text-amber-600" />
+                  </div>
+                  <h3 className="font-black text-slate-900 tracking-tight text-xs">Notas de Seguimiento Internas</h3>
+                </div>
+                {!isEditingNotes && (
+                  <button
+                    onClick={() => setIsEditingNotes(true)}
+                    className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {isEditingNotes ? (
+                <div className="space-y-2 flex-1 flex flex-col">
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none h-20 resize-none transition-all flex-1"
+                    placeholder="Agrega notas sobre el progreso..."
+                  />
+                  <div className="flex justify-end gap-1.5 shrink-0">
+                    <button
+                      onClick={() => {
+                        setNotes(checkIn.notes || '');
+                        setIsEditingNotes(false);
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        onUpdateNotes(checkIn.id, notes);
+                        setIsEditingNotes(false);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg shadow-xs transition-all cursor-pointer"
+                    >
+                      <Save className="w-3 h-3" />
+                      Guardar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-50/70 rounded-xl p-3 text-xs text-slate-600 font-medium border border-slate-100 flex-1 min-h-[84px] max-h-[110px] overflow-y-auto leading-relaxed scrollbar-thin">
+                  {checkIn.notes ? (
+                    <p className="whitespace-pre-wrap">{checkIn.notes}</p>
+                  ) : (
+                    <p className="text-slate-400 italic">No hay notas registradas para este equipo.</p>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* Serial Number Re-entry History */}
+            <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 flex flex-col">
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-purple-50 rounded-lg flex items-center justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                  </div>
+                  <h3 className="font-black text-slate-900 tracking-tight text-xs">Historial por Número de Serie</h3>
+                </div>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 border border-slate-150 px-2 py-0.5 rounded-md">
+                  {serialHistory.length} Reingreso{serialHistory.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="flex-1 min-h-[84px] max-h-[110px] overflow-y-auto space-y-2 pr-1 text-xs scrollbar-thin">
+                {serialHistory.length > 0 ? (
+                  serialHistory.map((past, idx) => (
+                    <div key={past.id || idx} className="p-2 bg-slate-50/70 rounded-xl border border-slate-100/80 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-black text-slate-800 text-[11px] truncate">
+                          Fecha: {new Date(past.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate italic">
+                          Falla: "{past.printer.problem}"
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider border shrink-0 ${getStatusStyles(past.printer.status)}`}>
+                        {past.printer.status}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-400 py-3 italic text-center text-[11px]">
+                    <p>No se registran reingresos anteriores para este número de serie.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+          </div>
+
         </div>
 
-        {/* Right Column: Quote */}
-        <div className="space-y-6 md:space-y-10">
-          <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-indigo-600" />
+        {/* Right Column: Quotes Options A and B (Two Pricing Schemes) */}
+        <div className="lg:col-span-1">
+          <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 flex flex-col h-full justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-4 shrink-0">
+                <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 tracking-tight text-xs sm:text-sm">Opciones de Cotización</h3>
+                  <p className="text-[9px] text-slate-400 font-bold leading-none mt-0.5">Ofrece hasta 2 alternativas al cliente</p>
+                </div>
               </div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Cotización</h2>
-            </div>
 
-            {checkIn.quote && !isEditingQuote ? (
-              <div className="space-y-8">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${checkIn.quote.status === 'sent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
-                      {checkIn.quote.status === 'sent' ? 'Enviada' : 'Borrador'}
-                    </span>
-                    {checkIn.quote.status === 'sent' && (
+              {/* Dynamic Option Selector A and B Tabs */}
+              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl border border-slate-200/40 mb-4 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveQuoteOption('quote')}
+                  className={`py-2 px-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[46px] ${
+                    activeQuoteOption === 'quote'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-950'
+                  }`}
+                >
+                  <span className="flex items-center gap-1 leading-none text-center">
+                    Opción A (Estándar)
+                    {checkIn.quote && (
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse" />
+                    )}
+                  </span>
+                  <span className="text-[8px] text-slate-400 font-bold leading-none">
+                    {checkIn.quote ? `$${checkIn.quote.total.toLocaleString('es-MX')}` : 'Vacía'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveQuoteOption('quoteB')}
+                  className={`py-2 px-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[46px] ${
+                    activeQuoteOption === 'quoteB'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-950'
+                  }`}
+                >
+                  <span className="flex items-center gap-1 leading-none text-center">
+                    Opción B (Premium)
+                    {checkIn.quoteB && (
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse" />
+                    )}
+                  </span>
+                  <span className="text-[8px] text-slate-400 font-bold leading-none">
+                    {checkIn.quoteB ? `$${checkIn.quoteB.total.toLocaleString('es-MX')}` : 'Vacía'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Selected Option Content */}
+              {checkIn[activeQuoteOption] ? (
+                <div className="space-y-4 flex flex-col">
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                        checkIn[activeQuoteOption]!.status === 'sent'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : 'bg-amber-50 text-amber-700 border-amber-100'
+                      }`}>
+                        {checkIn[activeQuoteOption]!.status === 'sent' ? 'Enviada' : 'Borrador'}
+                      </span>
+                      
+                      <div className="flex items-center gap-2">
+                        {checkIn[activeQuoteOption]!.status === 'sent' ? (
+                          <button
+                            onClick={() => onUnlockQuote(checkIn.id, activeQuoteOption)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all cursor-pointer"
+                            title="Desbloquear cotización"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEditQuote(activeQuoteOption)}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-lg transition-all cursor-pointer"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            Editar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Compact Itemized Table */}
+                    <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1 text-xs border-b border-slate-150 pb-2 scrollbar-thin">
+                      {(checkIn[activeQuoteOption]!.items || []).map((item, idx) => (
+                        <div key={item.id || idx} className="flex justify-between items-start text-xs pb-1 border-b border-slate-50 last:border-0 last:pb-0">
+                          <span className="text-slate-500 font-bold pr-2 truncate max-w-[170px]">{item.description}</span>
+                          <span className="font-black text-slate-900 shrink-0">${(Number(item.price) || 0).toLocaleString('es-MX')}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="pt-2.5 flex justify-between items-center">
+                      <span className="font-black text-slate-400 uppercase tracking-widest text-[9px]">Total Opción</span>
+                      <span className="text-2xl font-black text-indigo-600 tracking-tighter">${checkIn[activeQuoteOption]!.total.toLocaleString('es-MX')}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions Grid */}
+                  <div className="space-y-2 pt-2 shrink-0 border-t border-slate-100">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => onUnlockQuote(checkIn.id)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all"
-                        title="Desbloquear cotización"
+                        onClick={() => {
+                          setActiveShareQuote(activeQuoteOption);
+                          setShowQuoteSheet(true);
+                        }}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-900 text-[10px] font-black rounded-xl shadow-xs transition-all cursor-pointer min-h-[38px]"
                       >
-                        <Unlock className="w-4 h-4" />
+                        <Printer className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span>Ver / Imprimir</span>
+                      </button>
+                      <button
+                        onClick={() => handleDownloadPdf(activeQuoteOption)}
+                        disabled={isGeneratingPdf}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer min-h-[38px]"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span>{isGeneratingPdf && activeShareQuote === activeQuoteOption ? 'Generando...' : 'Descargar PDF'}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setActiveShareQuote(activeQuoteOption);
+                          setShowQRModal(true);
+                        }}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black rounded-xl shadow-md transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span>Código QR</span>
+                      </button>
+                      <button
+                        onClick={() => handleSendWhatsApp(activeQuoteOption)}
+                        disabled={isGeneratingPdf}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-[#25D366] hover:bg-[#128C7E] text-white text-[10px] font-black rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer min-h-[38px]"
+                      >
+                        <Send className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span>WhatsApp</span>
+                      </button>
+                    </div>
+
+                    {checkIn[activeQuoteOption]!.status !== 'sent' && (
+                      <button
+                        onClick={() => onMarkQuoteAsSent(checkIn.id, activeQuoteOption)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black rounded-xl shadow-md transition-all cursor-pointer min-h-[38px]"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        Bloquear para Envío
                       </button>
                     )}
                   </div>
-                  {checkIn.quote.status !== 'sent' && (
-                    <button
-                      onClick={handleEditQuote}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black rounded-xl transition-all"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      Editar
-                    </button>
-                  )}
                 </div>
-
-                <div className="space-y-4">
-                  {(checkIn.quote?.items || []).map((item, idx) => (
-                    <div key={item.id || idx} className="flex justify-between items-start text-sm pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                      <span className="text-slate-600 font-bold pr-4">{item.description || 'Sin descripción'}</span>
-                      <span className="font-black text-slate-900 whitespace-nowrap">${(Number(item.price) || 0).toLocaleString('es-MX')}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
-                  <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Total</span>
-                  <span className="text-3xl font-black text-indigo-600 tracking-tighter">${checkIn.quote.total.toLocaleString('es-MX')}</span>
-                </div>
-                
-                <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setShowQuoteSheet(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-900 text-xs font-black rounded-2xl shadow-sm transition-all"
-                    >
-                      <Printer className="w-4 h-4 text-indigo-600" />
-                      Imprimir / Ver
-                    </button>
-                    <button
-                      onClick={handleDownloadPdf}
-                      disabled={isGeneratingPdf}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all disabled:opacity-50"
-                    >
-                      <Download className="w-4 h-4" />
-                      {isGeneratingPdf ? 'Generando...' : 'Descargar PDF'}
-                    </button>
+              ) : (
+                <div className="text-center py-8 space-y-4 flex flex-col justify-center flex-1">
+                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-slate-100">
+                    <FileText className="w-6 h-6 text-slate-300" />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setShowQRModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-purple-100 transition-all"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      Código QR
-                    </button>
-                    <button
-                      onClick={handleSendWhatsApp}
-                      disabled={isGeneratingPdf}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white text-xs font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all disabled:opacity-50"
-                    >
-                      <Send className="w-4 h-4" />
-                      WhatsApp
-                    </button>
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-slate-800">Esta opción no ha sido cotizada</p>
+                    <p className="text-[10px] text-slate-400 font-medium px-4">Proporciona un presupuesto alternativo o premium para dar opciones al cliente.</p>
                   </div>
-
-                  {checkIn.quote.status !== 'sent' && (
-                    <button
-                      onClick={() => onMarkQuoteAsSent(checkIn.id)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl shadow-xl transition-all mt-1"
-                    >
-                      <Lock className="w-4 h-4" />
-                      Bloquear para Envío
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : isCreatingQuote || isEditingQuote ? (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  {(quoteItems || []).map((item, index) => (
-                    <div key={index} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4 relative group">
-                      <button
-                        onClick={() => handleRemoveQuoteItem(index)}
-                        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      
-                      <div className="space-y-4">
-                        <div className="relative">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 mb-1 block">
-                            Cargar desde Catálogo (Opcional)
-                          </label>
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              const product = products.find(p => p.id === e.target.value);
-                              if (product) {
-                                handleUpdateQuoteItem(index, {
-                                  description: product.name,
-                                  price: product.price
-                                });
-                              }
-                            }}
-                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 appearance-none transition-all cursor-pointer hover:bg-slate-100"
-                          >
-                            <option value="" disabled>Seleccionar artículo...</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} - ${p.price}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="absolute right-4 top-[38px] pointer-events-none">
-                            <Search className="w-3 h-3 text-slate-400" />
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                            Descripción del Servicio / Producto
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Ej. Mantenimiento Preventivo"
-                            value={item?.description || ''}
-                            onChange={(e) => handleQuoteItemChange(index, 'description', e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                            Precio Unitario
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={item?.price || ''}
-                              onChange={(e) => handleQuoteItemChange(index, 'price', parseFloat(e.target.value) || 0)}
-                              className="w-full pl-8 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={handleAddQuoteItem}
-                    className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 rounded-2xl text-xs font-black transition-all"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Manual
-                  </button>
-                  <button
-                    onClick={() => setShowProductPicker(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-2xl text-xs font-black transition-all border border-indigo-100"
-                  >
-                    <Search className="w-4 h-4" />
-                    Catálogo
-                  </button>
-                </div>
-
-                <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
-                  <span className="font-black text-slate-400 uppercase tracking-widest text-xs">Total</span>
-                  <span className="text-2xl font-black text-slate-900 tracking-tighter">${totalQuote.toLocaleString('es-MX')}</span>
-                </div>
-
-                <div className="flex flex-col gap-3 pt-4">
-                  <button
-                    onClick={handleSaveQuote}
-                    className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all active:scale-95"
-                  >
-                    <Save className="w-5 h-5" />
-                    Guardar Cotización
-                  </button>
                   <button
                     onClick={() => {
-                      setIsCreatingQuote(false);
-                      setIsEditingQuote(false);
+                      setQuoteItems([{ description: '', price: 0 }]);
+                      setIsCreatingQuote(true);
                     }}
-                    className="w-full py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer mx-auto"
                   >
-                    Cancelar
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Cotizar Opción {activeQuoteOption === 'quote' ? 'A (Estándar)' : 'B (Premium)'}</span>
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 space-y-6">
-                <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto">
-                  <FileText className="w-10 h-10 text-slate-200" />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-black text-slate-900">Sin Cotización</p>
-                  <p className="text-xs text-slate-400 font-medium px-6">Genera un presupuesto detallado para que el cliente lo apruebe.</p>
-                </div>
-                <button
-                  onClick={() => setIsCreatingQuote(true)}
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95"
-                >
-                  <Plus className="w-5 h-5" />
-                  Crear Ahora
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </section>
-
-          {/* Previous Quotes History */}
-          {previousQuotes.length > 0 && (
-            <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
-                  <History className="w-6 h-6 text-slate-400" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Historial</h2>
-              </div>
-              <div className="space-y-4">
-                {previousQuotes.map(prevCheckIn => (
-                  <div key={prevCheckIn.id} className="flex justify-between items-center p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 hover:bg-white hover:shadow-md transition-all">
-                    <div>
-                      <p className="text-sm font-black text-slate-900">
-                        {new Date(prevCheckIn.quote!.createdAt).toLocaleDateString('es-MX', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                        {prevCheckIn.quote!.items.length} Conceptos
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-black text-indigo-600 tracking-tighter">
-                        ${prevCheckIn.quote!.total.toLocaleString('es-MX')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </div>
 
       {showQuoteSheet && (
-        <QuoteSheet checkIn={checkIn} onClose={() => setShowQuoteSheet(false)} />
+        <QuoteSheet 
+          checkIn={{
+            ...checkIn,
+            quote: activeShareQuote === 'quoteB' ? checkIn.quoteB : checkIn.quote
+          }} 
+          onClose={() => setShowQuoteSheet(false)} 
+        />
       )}
 
       {showQRModal && (
-        <QuoteQRModal checkIn={checkIn} onClose={() => setShowQRModal(false)} />
+        <QuoteQRModal 
+          checkIn={{
+            ...checkIn,
+            quote: activeShareQuote === 'quoteB' ? checkIn.quoteB : checkIn.quote
+          }} 
+          onClose={() => setShowQRModal(false)} 
+        />
       )}
 
       {/* Product Picker Modal */}
@@ -966,9 +1175,9 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
         <div className="fixed inset-0 z-[60] bg-slate-900/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-900">Seleccionar del Catálogo</h3>
-              <button onClick={() => setShowProductPicker(false)} className="p-1 hover:bg-slate-200 rounded-lg transition-colors">
-                <Trash2 className="w-5 h-5 text-slate-400" />
+              <h3 className="font-bold text-slate-900 text-sm">Seleccionar del Catálogo</h3>
+              <button onClick={() => setShowProductPicker(false)} className="p-1 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer">
+                <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             <div className="p-4 border-b border-slate-200">
@@ -980,27 +1189,27 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
                   placeholder="Buscar producto o servicio..."
                   value={productSearch}
                   onChange={e => setProductSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-thin">
               {filteredProducts.length > 0 ? (
                 filteredProducts.map(product => (
                   <button
                     key={product.id}
                     onClick={() => handleAddProductToQuote(product)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-indigo-50 rounded-xl transition-colors text-left group"
+                    className="w-full flex items-center justify-between p-3 hover:bg-indigo-50 rounded-xl transition-colors text-left group cursor-pointer"
                   >
                     <div>
-                      <p className="text-sm font-medium text-slate-900 group-hover:text-indigo-700">{product.name}</p>
-                      <p className="text-xs text-slate-500">{product.category}</p>
+                      <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-700">{product.name}</p>
+                      <p className="text-[10px] text-slate-500">{product.category}</p>
                     </div>
-                    <p className="text-sm font-bold text-indigo-600">${product.price.toFixed(2)}</p>
+                    <p className="text-xs font-black text-indigo-600">${product.price.toFixed(2)}</p>
                   </button>
                 ))
               ) : (
-                <div className="py-8 text-center text-slate-500 text-sm">
+                <div className="py-8 text-center text-slate-500 text-xs">
                   No se encontraron productos en el catálogo.
                 </div>
               )}
@@ -1008,7 +1217,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => setShowProductPicker(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
               >
                 Cerrar
               </button>
@@ -1019,7 +1228,13 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
       {/* Hidden printable area for PDF generation */}
       <div id="pdf-capture-area" style={{ position: 'absolute', left: '-2000px', top: '0', width: '800px', zIndex: -100, pointerEvents: 'none' }}>
-        <QuotePrintable checkIn={checkIn} printRef={hiddenPrintRef} />
+        <QuotePrintable 
+          checkIn={{
+            ...checkIn,
+            quote: activeShareQuote === 'quoteB' ? checkIn.quoteB : checkIn.quote
+          }} 
+          printRef={hiddenPrintRef} 
+        />
       </div>
     </div>
   );

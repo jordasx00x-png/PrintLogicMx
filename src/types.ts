@@ -18,6 +18,7 @@ export interface QuoteItem {
   id: string;
   description: string;
   price: number;
+  cost?: number;
 }
 
 export interface Quote {
@@ -65,6 +66,7 @@ export interface CheckIn {
   client: Client;
   printer: Printer;
   quote?: Quote;
+  quoteB?: Quote;
   notes?: string;
   statusHistory?: { status: string; date: string }[];
   createdAt: string;

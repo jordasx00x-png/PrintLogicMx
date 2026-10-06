@@ -132,30 +132,39 @@ export default function App() {
     }
   };
 
-  const handleAddQuote = async (checkInId: string, quote: any) => {
+  const handleAddQuote = async (checkInId: string, quote: any, optionKey: 'quote' | 'quoteB' = 'quote') => {
     try {
-      await addQuote(checkInId, quote);
+      await addQuote(checkInId, quote, optionKey);
       addToast('Cotización creada correctamente', 'success');
     } catch (error) {
       addToast('Error al crear la cotización', 'error');
     }
   };
 
-  const handleUpdateQuote = async (checkInId: string, quote: any) => {
+  const handleUpdateQuote = async (checkInId: string, quote: any, optionKey: 'quote' | 'quoteB' = 'quote') => {
     try {
-      await updateQuote(checkInId, quote);
+      await updateQuote(checkInId, quote, optionKey);
       addToast('Cotización actualizada', 'success');
     } catch (error) {
       addToast('Error al actualizar la cotización', 'error');
     }
   };
 
-  const handleMarkQuoteAsSent = async (checkInId: string) => {
+  const handleMarkQuoteAsSent = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
     try {
-      await markQuoteAsSent(checkInId);
+      await markQuoteAsSent(checkInId, optionKey);
       addToast('Cotización marcada como enviada', 'success');
     } catch (error) {
       addToast('Error al actualizar estado', 'error');
+    }
+  };
+
+  const handleUnlockQuote = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
+    try {
+      await unlockQuote(checkInId, optionKey);
+      addToast('Cotización desbloqueada correctamente', 'success');
+    } catch (error) {
+      addToast('Error al desbloquear cotización', 'error');
     }
   };
 
@@ -440,12 +449,13 @@ export default function App() {
           onAddQuote={handleAddQuote}
           onUpdateQuote={handleUpdateQuote}
           onMarkQuoteAsSent={handleMarkQuoteAsSent}
-          onUnlockQuote={unlockQuote}
+          onUnlockQuote={handleUnlockQuote}
           onUpdateStatus={handleUpdateStatus}
           onUpdateClient={handleUpdateClient}
           onUpdatePrinter={updatePrinter}
           onUpdateNotes={updateNotes}
           onDelete={handleDeleteCheckIn}
+          onAddProduct={addProduct}
         />
       )}
       {currentView === 'details' && !selectedCheckIn && (

@@ -230,7 +230,7 @@ export function useStore(isAuthenticated: boolean = false) {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
-  const addQuote = async (checkInId: string, quote: Omit<Quote, 'id' | 'createdAt' | 'status'>) => {
+  const addQuote = async (checkInId: string, quote: Omit<Quote, 'id' | 'createdAt' | 'status'>, optionKey: 'quote' | 'quoteB' = 'quote') => {
     const checkInToUpdate = checkIns.find(c => c.id === checkInId);
     if (!checkInToUpdate) return;
 
@@ -248,7 +248,7 @@ export function useStore(isAuthenticated: boolean = false) {
 
     const updatedCheckIn: CheckIn = { 
       ...checkInToUpdate, 
-      quote: newQuote, 
+      [optionKey]: newQuote, 
       printer: { ...checkInToUpdate.printer, status: 'Cotizado' },
       statusHistory: newStatusHistory
     };
@@ -266,11 +266,11 @@ export function useStore(isAuthenticated: boolean = false) {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
-  const updateQuote = async (checkInId: string, quote: Quote) => {
+  const updateQuote = async (checkInId: string, quote: Quote, optionKey: 'quote' | 'quoteB' = 'quote') => {
     const checkInToUpdate = checkIns.find(c => c.id === checkInId);
     if (!checkInToUpdate) return;
 
-    const updatedCheckIn: CheckIn = { ...checkInToUpdate, quote };
+    const updatedCheckIn: CheckIn = { ...checkInToUpdate, [optionKey]: quote };
 
     setRawCheckIns(prev => prev.map(c => c.id === checkInId ? updatedCheckIn : c));
 
@@ -285,11 +285,14 @@ export function useStore(isAuthenticated: boolean = false) {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
-  const markQuoteAsSent = async (checkInId: string) => {
+  const markQuoteAsSent = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
     const checkInToUpdate = checkIns.find(c => c.id === checkInId);
-    if (!checkInToUpdate || !checkInToUpdate.quote) return;
+    if (!checkInToUpdate) return;
+    
+    const targetQuote = checkInToUpdate[optionKey];
+    if (!targetQuote) return;
 
-    const updatedCheckIn: CheckIn = { ...checkInToUpdate, quote: { ...checkInToUpdate.quote, status: 'sent' } };
+    const updatedCheckIn: CheckIn = { ...checkInToUpdate, [optionKey]: { ...targetQuote, status: 'sent' } };
 
     setRawCheckIns(prev => prev.map(c => c.id === checkInId ? updatedCheckIn : c));
 
@@ -304,11 +307,14 @@ export function useStore(isAuthenticated: boolean = false) {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
-  const unlockQuote = async (checkInId: string) => {
+  const unlockQuote = async (checkInId: string, optionKey: 'quote' | 'quoteB' = 'quote') => {
     const checkInToUpdate = checkIns.find(c => c.id === checkInId);
-    if (!checkInToUpdate || !checkInToUpdate.quote) return;
+    if (!checkInToUpdate) return;
 
-    const updatedCheckIn: CheckIn = { ...checkInToUpdate, quote: { ...checkInToUpdate.quote, status: 'draft' } };
+    const targetQuote = checkInToUpdate[optionKey];
+    if (!targetQuote) return;
+
+    const updatedCheckIn: CheckIn = { ...checkInToUpdate, [optionKey]: { ...targetQuote, status: 'draft' } };
 
     setRawCheckIns(prev => prev.map(c => c.id === checkInId ? updatedCheckIn : c));
 

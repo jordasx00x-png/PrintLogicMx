@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Sale, Client, Product, SaleItem } from '../../types';
-import { Save, Search, ArrowLeft, Plus, Trash2, User, Phone, Mail, MapPin } from 'lucide-react';
+import { Save, Search, ArrowLeft, Plus, Trash2, User, Phone, Mail, MapPin, UserPlus, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NewSaleProps {
   onSave: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
@@ -19,9 +20,41 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
     notes: '',
   });
 
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const [items, setItems] = useState<SaleItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [discount, setDiscount] = useState(0);
+
+  const matchingClients = useMemo(() => {
+    const term = formData.clientName.trim().toLowerCase();
+    if (!term || term.length < 1 || selectedClient) return [];
+
+    return clients.filter(c => {
+      const nameMatch = (c.name || '').toLowerCase().includes(term);
+      const phoneMatch = (c.phone || '').includes(term);
+      const emailMatch = (c.email || '').toLowerCase().includes(term);
+      return nameMatch || phoneMatch || emailMatch;
+    }).slice(0, 5);
+  }, [formData.clientName, clients, selectedClient]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        nameInputRef.current &&
+        !nameInputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -30,6 +63,24 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (selectedClient && name.startsWith('client')) {
+      setSelectedClient(null);
+    }
+    if (name === 'clientName') {
+      setShowSuggestions(true);
+    }
+  };
+
+  const selectClient = (client: Client) => {
+    setSelectedClient(client);
+    setFormData(prev => ({
+      ...prev,
+      clientName: client.name || '',
+      clientPhone: client.phone || '',
+      clientEmail: client.email || '',
+      clientAddress: client.address || '',
+    }));
+    setShowSuggestions(false);
   };
 
   const handleClientSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -38,13 +89,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
     
     const client = clients.find(c => c.id === selectedId);
     if (client) {
-      setFormData(prev => ({
-        ...prev,
-        clientName: client.name,
-        clientPhone: client.phone,
-        clientEmail: client.email || '',
-        clientAddress: client.address || '',
-      }));
+      selectClient(client);
     }
   };
 
@@ -100,6 +145,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
 
     onSave({
       client: {
+        id: selectedClient?.id,
         name: formData.clientName,
         phone: formData.clientPhone,
         email: formData.clientEmail,
@@ -119,7 +165,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
       <div className="flex items-center gap-4">
         <button 
           onClick={onCancel}
-          className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:shadow-md transition-all"
+          className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:shadow-md transition-all cursor-pointer"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
@@ -142,7 +188,12 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                   <h2 className="text-xl font-black text-slate-900 tracking-tight">Datos del Cliente</h2>
                 </div>
                 
-                {clients.length > 0 && (
+                {selectedClient ? (
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1 rounded-xl text-xs font-bold border border-emerald-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Cliente Añadido</span>
+                  </div>
+                ) : clients.length > 0 && (
                   <div className="relative group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
                     <select 
@@ -161,25 +212,97 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                 )}
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div className="space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 relative">
+                {/* Nombre Completo with Autocomplete Box */}
+                <div className="space-y-2 sm:col-span-2 relative">
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Nombre Completo *
                   </label>
                   <div className="relative group">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
                     <input
+                      ref={nameInputRef}
                       type="text"
                       name="clientName"
                       required
+                      autoComplete="off"
                       value={formData.clientName}
                       onChange={handleChange}
+                      onFocus={() => setShowSuggestions(true)}
                       className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                      placeholder="Ej. Juan Pérez"
+                      placeholder="Escribe el nombre del cliente..."
                     />
                   </div>
+
+                  {/* Autocomplete Suggestions Dropdown Box */}
+                  <AnimatePresence>
+                    {showSuggestions && matchingClients.length > 0 && !selectedClient && (
+                      <motion.div
+                        ref={dropdownRef}
+                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-2 space-y-1.5"
+                      >
+                        <div className="px-2 py-1 flex items-center justify-between border-b border-slate-100">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            Clientes Registrados Encontrados
+                          </span>
+                          <span className="text-[10px] text-indigo-600 font-semibold">Toca para añadir</span>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto space-y-1 divide-y divide-slate-50">
+                          {matchingClients.map((client, idx) => (
+                            <div
+                              key={client.id || idx}
+                              onClick={() => selectClient(client)}
+                              className="p-2.5 rounded-xl hover:bg-indigo-50/80 active:bg-indigo-100/80 cursor-pointer transition-all flex items-center justify-between gap-3 group border border-transparent hover:border-indigo-100"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                  {client.name ? client.name.charAt(0).toUpperCase() : 'C'}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-900 truncate">
+                                    {client.name}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                                    {client.phone && (
+                                      <span className="flex items-center gap-1 font-mono">
+                                        <Phone className="w-3 h-3 text-slate-400" />
+                                        {client.phone}
+                                      </span>
+                                    )}
+                                    {client.email && (
+                                      <span className="hidden sm:inline truncate max-w-[140px] text-slate-400">
+                                        {client.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  selectClient(client);
+                                }}
+                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 transition-transform"
+                              >
+                                <UserPlus className="w-3 h-3" />
+                                <span>Añadir</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-                <div className="space-y-2.5">
+
+                <div className="space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Teléfono / WhatsApp (Opcional)
                   </label>
@@ -195,7 +318,8 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                     />
                   </div>
                 </div>
-                <div className="space-y-2.5">
+
+                <div className="space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Correo Electrónico
                   </label>
@@ -211,7 +335,8 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                     />
                   </div>
                 </div>
-                <div className="space-y-2.5">
+
+                <div className="sm:col-span-2 space-y-2">
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Dirección (Opcional)
                   </label>
@@ -230,193 +355,152 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
               </div>
             </section>
 
-            {/* Items */}
-            <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10 space-y-6 md:space-y-8">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                  <Plus className="w-6 h-6 text-emerald-600" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight">Artículos</h2>
-              </div>
-
+            {/* Product Selector */}
+            <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10 space-y-6">
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">Agregar Refacciones / Servicios</h2>
+              
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
                 <input
                   type="text"
-                  placeholder="Buscar producto por nombre o SKU..."
+                  placeholder="Buscar en el catálogo de refacciones..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                 />
-                
-                {searchTerm && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
-                    {filteredProducts.length > 0 ? (
-                      filteredProducts.map(product => (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => addItem(product)}
-                          className="w-full flex items-center justify-between p-4 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors text-left"
-                        >
-                          <div>
-                            <p className="font-bold text-slate-900">{product.name}</p>
-                          </div>
-                          <p className="font-black text-indigo-600">${product.price.toFixed(2)}</p>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-slate-500 text-sm">
-                        No se encontraron productos
+              </div>
+
+              {searchTerm && (
+                <div className="border border-slate-100 rounded-2xl p-2 space-y-1">
+                  {filteredProducts.length === 0 ? (
+                    <p className="p-4 text-center text-sm text-slate-400 font-medium">No se encontraron refacciones</p>
+                  ) : (
+                    filteredProducts.map((p) => (
+                      <div 
+                        key={p.id}
+                        onClick={() => addItem(p)}
+                        className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{p.name}</p>
+                          <p className="text-xs text-slate-400 font-medium">{p.category}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-black text-slate-900">${p.price}</span>
+                          <button type="button" className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                    )}
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* Items Table */}
+              <div className="space-y-4 pt-4">
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-400">Artículos en la Venta</h3>
+                {items.length === 0 ? (
+                  <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                    <p className="text-sm text-slate-400 font-medium">No hay refacciones agregadas a esta venta.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {items.map((item, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{item.name}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-medium">Cant:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(index, parseInt(e.target.value) || 1)}
+                              className="w-16 px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-center"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-medium">Precio:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.unitPrice}
+                              onChange={(e) => updatePrice(index, parseFloat(e.target.value) || 0)}
+                              className="w-20 px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-center"
+                            />
+                          </div>
+                          <span className="text-sm font-black text-slate-900 w-20 text-right">
+                            ${item.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              {items.length > 0 && (
-                <div className="space-y-4">
-                  {items.map((item, index) => (
-                    <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="flex-1">
-                        <p className="font-bold text-slate-900">{item.name}</p>
-                      </div>
-                      <div className="flex items-center gap-4 w-full sm:w-auto">
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500 font-bold uppercase">Cant.</label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(index, parseInt(e.target.value) || 1)}
-                            className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-center focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500 font-bold uppercase">Precio</label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.unitPrice}
-                            onChange={(e) => updatePrice(index, parseFloat(e.target.value) || 0)}
-                            className="w-24 px-2 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-right focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                        <div className="w-24 text-right">
-                          <p className="font-black text-slate-900">${item.total.toFixed(2)}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </section>
           </div>
 
-          {/* Sidebar Info */}
-          <div className="space-y-8">
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-6">
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Resumen</h3>
+          {/* Totals & Actions Sidebar */}
+          <div className="space-y-6">
+            <div className="bg-slate-900 text-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 space-y-6 shadow-xl sticky top-24">
+              <h3 className="text-lg font-black tracking-tight">Resumen de Cuenta</h3>
               
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-medium">Subtotal</span>
-                  <span className="text-slate-900 font-bold">${subtotal.toFixed(2)}</span>
+              <div className="space-y-3 pt-4 border-t border-slate-800">
+                <div className="flex justify-between text-sm text-slate-400">
+                  <span>Subtotal</span>
+                  <span className="font-bold text-white">${subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                 </div>
                 
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-500 font-medium">Descuento</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={discount}
-                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 bg-slate-50 border border-slate-200 rounded-xl text-right font-bold focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
+                <div className="flex items-center justify-between text-sm text-slate-400">
+                  <span>Descuento</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={discount}
+                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                    className="w-24 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm font-bold text-right text-white"
+                  />
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
-                  <span className="text-slate-900 font-black">Total</span>
-                  <span className="text-2xl font-black text-indigo-600">${total.toFixed(2)}</span>
+                <div className="flex justify-between text-lg font-black pt-4 border-t border-slate-800 text-emerald-400">
+                  <span>Total</span>
+                  <span>${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-50">
-                <button
-                  type="submit"
-                  disabled={isSaving || items.length === 0}
-                  className="hidden md:flex w-full items-center justify-center gap-3 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 group disabled:cursor-not-allowed"
-                >
-                  {isSaving ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Save className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  )}
-                  {isSaving ? 'Guardando...' : 'Guardar Cotización'}
-                </button>
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="hidden md:block w-full mt-4 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  Cancelar
-                </button>
+              <div className="space-y-3 pt-4">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  Notas / Observaciones
+                </label>
+                <textarea
+                  rows={3}
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Detalles sobre la garantía, entrega, etc."
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
               </div>
+
+              <button
+                type="submit"
+                disabled={isSaving || items.length === 0}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-600/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Save className="w-5 h-5" />
+                <span>{isSaving ? 'Guardando...' : 'Guardar Venta'}</span>
+              </button>
             </div>
-
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 space-y-4">
-              <h3 className="text-sm font-black text-slate-900 tracking-tight uppercase">Notas adicionales</h3>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={4}
-                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all resize-none"
-                placeholder="Notas internas o comentarios para el cliente..."
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Sticky Mobile Bottom Bar (Thumb Zone) */}
-        <div className="md:hidden fixed bottom-16 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 z-30 flex items-center justify-between gap-3 shadow-lg">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
-            <span className="text-base font-black text-slate-900 font-mono">${total.toFixed(2)}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="h-11 px-3 rounded-xl text-slate-500 font-bold text-xs flex items-center justify-center active:scale-95 transition-all"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving || items.length === 0}
-              className="h-11 px-4 bg-slate-950 active:bg-slate-800 disabled:bg-slate-400 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-98 shadow-sm transition-all cursor-pointer"
-            >
-              {isSaving ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              <span>{isSaving ? 'Guardando...' : 'Guardar Cotización'}</span>
-            </button>
           </div>
         </div>
       </form>
