@@ -9,6 +9,7 @@ export interface Client {
 export interface Printer {
   brand: string;
   model: string;
+  serialNumber?: string;
   problem: string;
   status: 'Ingresado' | 'Cotizado' | 'Aceptado' | 'Reparado' | 'Entregado';
 }

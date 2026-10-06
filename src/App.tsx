@@ -20,7 +20,7 @@ import { useToast } from './hooks/useToast';
 import { Sale } from './types';
 
 export default function App() {
-  const { user, login, loginWithGoogle, register, logout } = useAuth();
+  const { user, isAuthReady, isAuthenticated, login, loginWithGoogle, register, logout } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -33,6 +33,7 @@ export default function App() {
     stats,
     addCheckIn, 
     updateCheckInStatus, 
+    updatePrinter,
     addQuote, 
     updateQuote, 
     markQuoteAsSent, 
@@ -50,7 +51,7 @@ export default function App() {
     addSale,
     updateSale,
     deleteSale
-  } = useStore();
+  } = useStore(isAuthenticated);
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
@@ -341,7 +342,18 @@ export default function App() {
 
   const selectedCheckIn = checkIns.find(c => c.id === selectedCheckInId);
 
-  if (!user) {
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-slate-500 font-medium font-mono">Iniciando PrintFix...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !isAuthenticated) {
     return <AuthScreen onLogin={login} onGoogleLogin={loginWithGoogle} />;
   }
 
@@ -352,7 +364,13 @@ export default function App() {
         <Dashboard stats={stats} checkIns={checkIns} onViewDetails={handleViewDetails} onNavigate={handleNavigate} />
       )}
       {currentView === 'list' && (
-        <CheckInList checkIns={checkIns} onViewDetails={handleViewDetails} onDelete={handleDeleteCheckIn} />
+        <CheckInList 
+          checkIns={checkIns} 
+          onViewDetails={handleViewDetails} 
+          onDelete={handleDeleteCheckIn}
+          onUpdateStatus={handleUpdateStatus}
+          onNewCheckIn={() => handleNavigate('new')}
+        />
       )}
       {currentView === 'new' && (
         <NewCheckIn 
@@ -426,6 +444,7 @@ export default function App() {
           onUnlockQuote={unlockQuote}
           onUpdateStatus={handleUpdateStatus}
           onUpdateClient={handleUpdateClient}
+          onUpdatePrinter={updatePrinter}
           onUpdateNotes={updateNotes}
           onDelete={handleDeleteCheckIn}
         />

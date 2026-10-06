@@ -14,7 +14,11 @@ import {
   Info,
   CheckCircle2,
   XCircle,
-  UserCheck
+  UserCheck,
+  Barcode,
+  ShieldCheck,
+  History,
+  Clock
 } from 'lucide-react';
 
 interface NewCheckInProps {
@@ -33,6 +37,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     clientAddress: '',
     printerBrand: '',
     printerModel: '',
+    printerSerialNumber: '',
     printerProblem: '',
   });
 
@@ -77,6 +82,26 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     }).slice(0, 5);
   }, [formData.clientName, formData.clientPhone, formData.clientEmail, uniqueClients]);
 
+  // Serial number history matching
+  const matchingSerialCheckIns = useMemo(() => {
+    const serialTerm = (formData.printerSerialNumber || '').trim().toLowerCase();
+    if (!serialTerm || serialTerm.length < 2) return [];
+
+    return checkIns
+      .filter(c => c.printer?.serialNumber && c.printer.serialNumber.trim().toLowerCase() === serialTerm)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [formData.printerSerialNumber, checkIns]);
+
+  const latestSerialCheckIn = matchingSerialCheckIns[0];
+
+  const daysSinceLastDelivery = useMemo(() => {
+    if (!latestSerialCheckIn) return null;
+    const pastDate = new Date(latestSerialCheckIn.createdAt).getTime();
+    const now = new Date().getTime();
+    const diffMs = now - pastDate;
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [latestSerialCheckIn]);
+
   const selectClient = (client: Client) => {
     setSelectedClient(client);
     setFormData(prev => ({
@@ -103,8 +128,8 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (selectedClient) {
-      setSelectedClient(null); // User started editing or custom typing
+    if (selectedClient && (name.startsWith('client'))) {
+      setSelectedClient(null); // User started editing custom client field
     }
   };
 
@@ -121,6 +146,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
       printer: {
         brand: formData.printerBrand,
         model: formData.printerModel,
+        serialNumber: formData.printerSerialNumber.trim(),
         problem: formData.printerProblem,
         status: 'Ingresado',
       },
@@ -128,7 +154,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 pb-20">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 pb-36 md:pb-20">
       <div className="flex items-center gap-4">
         <button 
           onClick={onCancel}
@@ -341,6 +367,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                     placeholder="Ej. Epson, HP, Canon"
                   />
                 </div>
+
                 <div className="space-y-2.5">
                   <label htmlFor="printerModel" className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Modelo *
@@ -356,6 +383,105 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                     placeholder="Ej. L3150"
                   />
                 </div>
+
+                {/* Serial Number Input */}
+                <div className="sm:col-span-2 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="printerSerialNumber" className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                      Número de Serie / S/N (Recomendado para Garantía)
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
+                      Rastreo de Garantía
+                    </span>
+                  </div>
+                  <div className="relative group">
+                    <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-600 transition-colors" />
+                    <input
+                      type="text"
+                      id="printerSerialNumber"
+                      name="printerSerialNumber"
+                      value={formData.printerSerialNumber}
+                      onChange={handleChange}
+                      className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all uppercase tracking-wider"
+                      placeholder="Ej. X7Y908123456"
+                    />
+                  </div>
+                </div>
+
+                {/* Serial Match Warranty Warning Banner */}
+                {latestSerialCheckIn && (
+                  <div className="sm:col-span-2 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300/80 rounded-[1.5rem] p-5 shadow-sm space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-3">
+                      <div className="flex items-center gap-2 text-amber-900 font-black text-sm">
+                        <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                        <span>¡Equipo Registrado Anteriormente!</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-amber-200 text-amber-900 text-[10px] uppercase font-black px-2.5 py-1 rounded-lg">
+                          S/N: {latestSerialCheckIn.printer.serialNumber}
+                        </span>
+                        <span className="text-xs font-black text-amber-800 bg-white/80 border border-amber-200 px-3 py-1 rounded-xl whitespace-nowrap">
+                          {daysSinceLastDelivery === 0 
+                            ? 'Registrado hoy' 
+                            : `Ingresado hace ${daysSinceLastDelivery} días`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-amber-950 font-medium bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-amber-200/60 shadow-inner">
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-amber-700 block">Cliente Asociado:</span>
+                        <span className="font-black text-slate-900">{latestSerialCheckIn.client?.name || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-black uppercase text-amber-700 block">Último Estado:</span>
+                        <span className="font-extrabold text-indigo-700">{latestSerialCheckIn.printer.status}</span>
+                      </div>
+                      <div className="sm:col-span-2 pt-1 border-t border-amber-100">
+                        <span className="text-[10px] font-black uppercase text-amber-700 block">Diagnóstico/Falla Anterior:</span>
+                        <span className="italic text-slate-700">{latestSerialCheckIn.printer.problem || 'Sin detalle'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <p className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                        {daysSinceLastDelivery !== null && daysSinceLastDelivery <= 90 ? (
+                          <span className="text-emerald-700 font-extrabold flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" />
+                            Posible Garantía Vigente (Menos de 90 días desde el registro anterior)
+                          </span>
+                        ) : (
+                          <span className="text-amber-800 font-bold flex items-center gap-1">
+                            <Clock className="w-4 h-4 text-amber-600 inline" />
+                            Reingreso (Fuera del periodo estándar de 90 días)
+                          </span>
+                        )}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            printerBrand: latestSerialCheckIn.printer.brand || prev.printerBrand,
+                            printerModel: latestSerialCheckIn.printer.model || prev.printerModel,
+                            clientName: latestSerialCheckIn.client?.name || prev.clientName,
+                            clientPhone: latestSerialCheckIn.client?.phone || prev.clientPhone,
+                            clientEmail: latestSerialCheckIn.client?.email || prev.clientEmail,
+                            clientAddress: latestSerialCheckIn.client?.address || prev.clientAddress,
+                          }));
+                          if (latestSerialCheckIn.client) {
+                            setSelectedClient(latestSerialCheckIn.client);
+                          }
+                        }}
+                        className="text-xs font-black bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Cargar Cliente y Datos Anteriores
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="sm:col-span-2 space-y-2.5">
                   <label htmlFor="printerProblem" className="block text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
                     Descripción del Problema *
@@ -417,7 +543,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 group disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white text-sm font-bold rounded-2xl shadow-lg transition-all active:scale-95 group disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSaving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -429,13 +555,36 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="w-full mt-4 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                  className="w-full mt-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Sticky Mobile Bottom Bar (Thumb Zone) */}
+        <div className="md:hidden fixed bottom-16 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 z-30 flex items-center gap-2 shadow-lg">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-11 px-4 rounded-xl text-slate-500 font-bold text-xs flex items-center justify-center active:scale-95 transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="flex-1 h-11 bg-slate-950 active:bg-slate-800 disabled:bg-slate-400 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-98 shadow-sm transition-all cursor-pointer"
+          >
+            {isSaving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            <span>{isSaving ? 'Guardando...' : 'Guardar Ingreso'}</span>
+          </button>
         </div>
       </form>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { CheckIn, Quote, QuoteItem, Product } from '../types';
-import { ArrowLeft, Printer, User, FileText, Plus, Trash2, Send, CheckCircle2, Edit2, Save, History, Lock, Unlock, Clock, Search, AlertCircle, Download, QrCode } from 'lucide-react';
+import { ArrowLeft, Printer, User, FileText, Plus, Trash2, Send, CheckCircle2, Edit2, Save, History, Lock, Unlock, Clock, Search, AlertCircle, Download, QrCode, Barcode, ShieldCheck } from 'lucide-react';
 import { QuoteSheet } from './QuoteSheet';
 import { QuotePrintable } from './QuotePrintable';
 import { QuoteQRModal } from './QuoteQRModal';
@@ -17,20 +17,23 @@ interface CheckInDetailsProps {
   onUnlockQuote: (checkInId: string) => void;
   onUpdateStatus: (id: string, status: CheckIn['printer']['status']) => void;
   onUpdateClient: (id: string, client: CheckIn['client']) => void;
+  onUpdatePrinter: (id: string, printer: CheckIn['printer']) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onUpdateStatus, onUpdateClient, onUpdateNotes, onDelete }: CheckInDetailsProps) {
+export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onUpdateStatus, onUpdateClient, onUpdatePrinter, onUpdateNotes, onDelete }: CheckInDetailsProps) {
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isEditingClient, setIsEditingClient] = useState(false);
+  const [isEditingPrinter, setIsEditingPrinter] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [showQuoteSheet, setShowQuoteSheet] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [editClientForm, setEditClientForm] = useState(checkIn.client || { name: '', phone: '', email: '', address: '' });
+  const [editPrinterForm, setEditPrinterForm] = useState(checkIn.printer || { brand: '', model: '', serialNumber: '', problem: '', status: 'Ingresado' });
   const [notes, setNotes] = useState(checkIn.notes || '');
   const [quoteItems, setQuoteItems] = useState<Omit<QuoteItem, 'id'>[]>([
     { description: '', price: 0 }
@@ -145,6 +148,17 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     setIsEditingClient(false);
   };
 
+  const handleSavePrinter = () => {
+    onUpdatePrinter(checkIn.id, editPrinterForm);
+    setIsEditingPrinter(false);
+  };
+
+  React.useEffect(() => {
+    setEditClientForm(checkIn.client || { name: '', phone: '', email: '', address: '' });
+    setEditPrinterForm(checkIn.printer || { brand: '', model: '', serialNumber: '', problem: '', status: 'Ingresado' });
+    setNotes(checkIn.notes || '');
+  }, [checkIn]);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleDelete = () => {
@@ -228,28 +242,67 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  // Find other check-ins with matching serial number
+  const serialHistory = checkIns
+    .filter(c => 
+      c.id !== checkIn.id && 
+      checkIn.printer?.serialNumber &&
+      c.printer?.serialNumber && 
+      c.printer.serialNumber.trim().toLowerCase() === checkIn.printer.serialNumber.trim().toLowerCase()
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 md:space-y-10 pb-20 print:max-w-none print:space-y-0">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 hover:shadow-md transition-all"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-white border border-slate-200/80 rounded-2xl text-slate-500 hover:text-slate-900 active:scale-95 transition-all shadow-xs cursor-pointer"
+            title="Volver"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Detalles del Ingreso</h1>
-            <p className="text-sm md:text-base text-slate-500 font-medium">ID: {checkIn.id.slice(0, 8).toUpperCase()}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">
+              {checkIn.printer?.brand} {checkIn.printer?.model}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-mono">
+              Folio: #{checkIn.id.slice(0, 8).toUpperCase()}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative group">
+
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+          {/* Quick Call & WhatsApp if client has phone */}
+          {checkIn.client?.phone && (
+            <div className="flex items-center gap-1.5 sm:hidden">
+              <a
+                href={`tel:${checkIn.client.phone.replace(/\s+/g, '')}`}
+                className="min-h-[42px] min-w-[42px] bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center transition-all"
+                title="Llamar"
+              >
+                <Clock className="hidden" /> {/* dummy */}
+                <span className="text-xs font-bold">Tel</span>
+              </a>
+              <a
+                href={`https://wa.me/${checkIn.client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${checkIn.client.name}, le contactamos de PrintFix sobre su equipo ${checkIn.printer.brand} ${checkIn.printer.model} (Folio #${checkIn.id.slice(0, 8).toUpperCase()}).`)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="min-h-[42px] px-3 bg-emerald-50 active:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black flex items-center gap-1 transition-all"
+                title="WhatsApp"
+              >
+                <span>WA</span>
+              </a>
+            </div>
+          )}
+
+          <div className="relative flex-1 sm:flex-initial">
             <select
               value={checkIn.printer?.status || 'Ingresado'}
               onChange={(e) => onUpdateStatus(checkIn.id, e.target.value as any)}
-              className={`text-xs font-black uppercase tracking-widest rounded-2xl px-5 py-3 border ring-1 appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all pr-10 ${getStatusStyles(checkIn.printer?.status || 'Ingresado')}`}
+              className={`w-full sm:w-auto min-h-[44px] text-xs font-black uppercase tracking-wider rounded-xl px-4 py-2.5 border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all pr-8 ${getStatusStyles(checkIn.printer?.status || 'Ingresado')}`}
             >
               <option value="Ingresado">Ingresado</option>
               <option value="Cotizado">Cotizado</option>
@@ -257,14 +310,15 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
               <option value="Reparado">Reparado</option>
               <option value="Entregado">Entregado</option>
             </select>
-            <Clock className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 opacity-40 pointer-events-none" />
+            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50 pointer-events-none" />
           </div>
+
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="p-3 text-slate-400 hover:text-red-600 hover:bg-white hover:shadow-md border border-transparent hover:border-slate-100 rounded-2xl transition-all"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-red-600 active:bg-red-50 border border-transparent rounded-xl transition-all cursor-pointer shrink-0"
             title="Eliminar ingreso"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -407,26 +461,155 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
           {/* Printer Info */}
           <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-10">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                <Printer className="w-6 h-6 text-emerald-600" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center shrink-0">
+                  <Printer className="w-6 h-6 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">Detalles del Equipo</h2>
+                  <p className="text-xs text-slate-400 font-medium">Especificaciones y rastreo de número de serie</p>
+                </div>
               </div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Detalles del Equipo</h2>
+              <div className="flex items-center gap-3">
+                {checkIn.printer?.serialNumber && !isEditingPrinter && (
+                  <span className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 text-xs font-black rounded-xl border border-emerald-100/80 shadow-sm">
+                    <Barcode className="w-4 h-4 text-emerald-600" />
+                    S/N: {checkIn.printer.serialNumber}
+                  </span>
+                )}
+                {!isEditingPrinter && (
+                  <button
+                    onClick={() => {
+                      setEditPrinterForm(checkIn.printer);
+                      setIsEditingPrinter(true);
+                    }}
+                    className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-xl transition-all"
+                    title="Editar equipo"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
-              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Marca</p>
-                <p className="text-lg font-black text-slate-900">{checkIn.printer?.brand || 'N/A'}</p>
+
+            {isEditingPrinter ? (
+              <div className="space-y-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Marca</label>
+                    <input
+                      type="text"
+                      value={editPrinterForm.brand}
+                      onChange={e => setEditPrinterForm({...editPrinterForm, brand: e.target.value})}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Modelo</label>
+                    <input
+                      type="text"
+                      value={editPrinterForm.model}
+                      onChange={e => setEditPrinterForm({...editPrinterForm, model: e.target.value})}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Número de Serie (Opcional)</label>
+                    <input
+                      type="text"
+                      value={editPrinterForm.serialNumber || ''}
+                      onChange={e => setEditPrinterForm({...editPrinterForm, serialNumber: e.target.value})}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all uppercase tracking-wider"
+                      placeholder="Sin número de serie"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setEditPrinterForm(checkIn.printer);
+                      setIsEditingPrinter(false);
+                    }}
+                    className="px-5 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSavePrinter}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-xl shadow-lg shadow-indigo-100 transition-all"
+                  >
+                    <Save className="w-4 h-4" />
+                    Guardar Cambios
+                  </button>
+                </div>
               </div>
-              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Modelo</p>
-                <p className="text-lg font-black text-slate-900">{checkIn.printer?.model || 'N/A'}</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Marca</p>
+                  <p className="text-lg font-black text-slate-900">{checkIn.printer?.brand || 'N/A'}</p>
+                </div>
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Modelo</p>
+                  <p className="text-lg font-black text-slate-900">{checkIn.printer?.model || 'N/A'}</p>
+                </div>
+                <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Número de Serie</p>
+                  <p className="text-sm font-black text-slate-900 uppercase tracking-wider font-mono">
+                    {checkIn.printer?.serialNumber || 'Sin Registrar'}
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Serial Number Past Warranty History */}
+            {serialHistory.length > 0 && (
+              <div className="mb-8 p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-[2rem] border border-amber-200/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-sm font-black text-amber-900">
+                      Historial por Número de Serie ({serialHistory.length} reingreso{serialHistory.length > 1 ? 's' : ''})
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/80 px-2.5 py-1 rounded-lg">
+                    S/N: {checkIn.printer?.serialNumber}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {serialHistory.map((past, idx) => {
+                    const daysAgo = Math.floor((new Date().getTime() - new Date(past.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                    return (
+                      <div key={past.id || idx} className="p-4 bg-white/90 backdrop-blur-sm rounded-2xl border border-amber-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-slate-900">Ingresado: {new Date(past.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            <span className="font-extrabold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md text-[10px]">
+                              {daysAgo === 0 ? 'Registrado hoy' : `Hace ${daysAgo} días`}
+                            </span>
+                          </div>
+                          <p className="text-slate-600 mt-1 font-medium">
+                            <span className="font-bold text-slate-800">Falla:</span> {past.printer.problem}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${getStatusStyles(past.printer.status)}`}>
+                            {past.printer.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className="flex items-center gap-2 ml-1">
                 <AlertCircle className="w-4 h-4 text-amber-500" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Falla Reportada</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Falla Reportada Actual</p>
               </div>
               <div className="bg-slate-900 rounded-[2rem] p-8 text-slate-300 text-sm font-medium leading-relaxed shadow-xl">
                 {checkIn.printer?.problem || 'No especificado'}

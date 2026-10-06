@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { signInWithGoogle, logoutFirebase } from '../lib/firebase';
+import { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, signInWithGoogle, logoutFirebase } from '../lib/firebase';
 
 export interface User {
   id: string;
@@ -13,6 +14,28 @@ export function useAuth() {
     const session = localStorage.getItem('printfix_session');
     return session ? JSON.parse(session) : null;
   });
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const userData: User = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
+          email: firebaseUser.email || '',
+          photoURL: firebaseUser.photoURL || undefined
+        };
+        setUser(userData);
+        localStorage.setItem('printfix_session', JSON.stringify(userData));
+      } else {
+        setUser(null);
+        localStorage.removeItem('printfix_session');
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -21,20 +44,20 @@ export function useAuth() {
         return { success: false, error: googleRes.error || 'No se pudo iniciar sesión con Google' };
       }
 
-      const response = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(googleRes.user),
-      });
-
-      const data = await response.json();
-      if (data.success && data.user) {
-        setUser(data.user);
-        localStorage.setItem('printfix_session', JSON.stringify(data.user));
-        return { success: true };
-      } else {
-        return { success: false, error: data.error || 'Error al autenticar en el servidor' };
+      // Sync user profile to backend session
+      try {
+        await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(googleRes.user),
+        });
+      } catch (e) {
+        console.warn('Backend sync optional:', e);
       }
+
+      setUser(googleRes.user);
+      localStorage.setItem('printfix_session', JSON.stringify(googleRes.user));
+      return { success: true };
     } catch (error: any) {
       console.error('Login with Google failed:', error);
       return { success: false, error: 'Error al conectar con Google' };
@@ -87,5 +110,15 @@ export function useAuth() {
     localStorage.removeItem('printfix_session');
   };
 
-  return { user, login, loginWithGoogle, register, logout };
+  const isAuthenticated = Boolean(user && auth.currentUser);
+
+  return { 
+    user, 
+    isAuthReady, 
+    isAuthenticated,
+    login, 
+    loginWithGoogle, 
+    register, 
+    logout 
+  };
 }

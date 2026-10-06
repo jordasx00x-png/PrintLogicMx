@@ -86,7 +86,7 @@ export function QuotePrintable({ checkIn, printRef }: QuotePrintableProps) {
         <div>
           <h3 className="text-xs font-black uppercase tracking-widest mb-4" style={{ color: '#64748b' }}>Detalles del Equipo</h3>
           <div className="bg-slate-50 rounded-2xl p-5 border" style={{ backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#94a3b8' }}>Marca</p>
                 <p className="text-sm font-bold" style={{ color: '#1e293b' }}>{checkIn.printer?.brand || 'N/A'}</p>
@@ -96,7 +96,13 @@ export function QuotePrintable({ checkIn, printRef }: QuotePrintableProps) {
                 <p className="text-sm font-bold" style={{ color: '#1e293b' }}>{checkIn.printer?.model || 'N/A'}</p>
               </div>
             </div>
-            <div>
+            {checkIn.printer?.serialNumber && (
+              <div className="mb-3 pt-2 border-t border-slate-200/60">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: '#94a3b8' }}>Número de Serie (S/N)</p>
+                <p className="text-xs font-mono font-bold tracking-wider" style={{ color: '#0f172a' }}>{checkIn.printer.serialNumber}</p>
+              </div>
+            )}
+            <div className="pt-2 border-t border-slate-200/60">
               <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>Problema Reportado</p>
               <p className="text-xs italic leading-relaxed" style={{ color: '#475569' }}>
                 "{checkIn.printer?.problem || 'No especificado'}"

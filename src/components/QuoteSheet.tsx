@@ -51,49 +51,58 @@ export function QuoteSheet({ checkIn, onClose }: QuoteSheetProps) {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl my-auto print:shadow-none print:rounded-none print:max-w-none print:w-full print:m-0 relative overflow-hidden border border-slate-100"
+        className="bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl w-full max-w-4xl my-auto print:shadow-none print:rounded-none print:max-w-none print:w-full print:m-0 relative overflow-hidden border border-slate-100"
       >
         {/* Actions - Hidden on print */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 gap-4 border-b border-slate-100 bg-slate-50/50 print:hidden">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-              <FileText className="w-6 h-6 text-indigo-600" />
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 sm:p-6 gap-4 border-b border-slate-100 bg-slate-50/50 print:hidden">
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-50 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Hoja de Cotización</h2>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Vista Previa & Exportación</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Hoja de Cotización</h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vista Previa & Exportación</p>
-            </div>
+
+            <button
+              onClick={onClose}
+              className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 active:bg-slate-100 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
             <button
               onClick={handlePrint}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              Imprimir
+              <span>Imprimir</span>
             </button>
             <button
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-emerald-100 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              {isGeneratingPdf ? 'Generando...' : 'Descargar PDF'}
+              <span>{isGeneratingPdf ? 'Generando...' : 'Descargar PDF'}</span>
             </button>
             <button
               onClick={() => setShowQRModal(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-2xl shadow-lg shadow-purple-100 transition-all active:scale-95"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black rounded-xl shadow-md transition-all active:scale-95"
             >
               <QrCode className="w-4 h-4" />
-              Código QR
+              <span>QR</span>
             </button>
             <div className="hidden md:block w-px h-8 bg-slate-200 mx-1" />
             <button
               onClick={onClose}
-              className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl transition-colors ml-auto md:ml-0"
+              className="hidden md:flex p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl transition-colors cursor-pointer"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>

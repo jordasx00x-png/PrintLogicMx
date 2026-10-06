@@ -56,7 +56,7 @@ export function CompanySettings() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-20">
+    <div className="max-w-4xl mx-auto space-y-8 pb-36 md:pb-20">
       <div className="flex items-center gap-4 mb-8">
         <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
           <Building className="w-6 h-6 text-indigo-600" />
@@ -198,7 +198,7 @@ export function CompanySettings() {
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 disabled:scale-100"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-slate-950 hover:bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
             <Save className="w-5 h-5" />
             {isSaving ? 'Guardando...' : 'Guardar Cambios'}

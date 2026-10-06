@@ -1,5 +1,24 @@
-import React from 'react';
-import { Printer, Users, FileText, Settings, Menu, X, LogOut, User, LayoutDashboard, Package, DollarSign, ChevronRight, Sparkles, ChevronLeft, ShoppingCart, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Printer, 
+  Users, 
+  Settings, 
+  Menu, 
+  X, 
+  LogOut, 
+  User, 
+  LayoutDashboard, 
+  Package, 
+  Plus,
+  ChevronRight, 
+  ChevronLeft, 
+  ShoppingCart, 
+  BarChart3,
+  Search,
+  Command,
+  ArrowRight,
+  MoreHorizontal
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -13,213 +32,434 @@ interface LayoutProps {
 }
 
 export function Layout({ children, currentView, onNavigate, onLogout, user }: LayoutProps) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const navItems = [
-    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, description: 'Resumen y estadísticas' },
-    { id: 'new', label: 'Nuevo Ingreso', icon: FileText, description: 'Registrar equipo' },
-    { id: 'list', label: 'Ingresos', icon: Printer, description: 'Gestión de reparaciones' },
-    { id: 'products', label: 'Catálogo', icon: Package, description: 'Refacciones y servicios' },
-    { id: 'clients', label: 'Clientes', icon: Users, description: 'Directorio de contactos' },
-    { id: 'sales', label: 'Ventas y Cotizaciones', icon: ShoppingCart, description: 'Gestión de ventas' },
-    { id: 'reports', label: 'Reporte de Ganancias', icon: BarChart3, description: 'Análisis financiero' },
-    { id: 'settings', label: 'Configuración', icon: Settings, description: 'Perfil de empresa' },
+    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+    { id: 'new', label: 'Nuevo Ingreso', icon: Plus },
+    { id: 'list', label: 'Ingresos y Taller', icon: Printer },
+    { id: 'products', label: 'Catálogo Refacciones', icon: Package },
+    { id: 'clients', label: 'Directorio Clientes', icon: Users },
+    { id: 'sales', label: 'Ventas y Cotizaciones', icon: ShoppingCart },
+    { id: 'reports', label: 'Reportes y Balance', icon: BarChart3 },
+    { id: 'settings', label: 'Configuración Taller', icon: Settings },
   ];
 
+  // Mobile bottom tab bar items (thumb-zone natural reach)
+  const mobileBottomTabs = [
+    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+    { id: 'new', label: 'Nuevo', icon: Plus },
+    { id: 'list', label: 'Ingresos', icon: Printer },
+    { id: 'products', label: 'Catálogo', icon: Package },
+  ];
+
+  const currentViewTitle = navItems.find(i => i.id === currentView)?.label || 'Panel de Control';
+
+  // Global Keyboard Shortcut: Cmd+K or Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsQuickSearchOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsQuickSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const filteredNavItems = searchQuery.trim()
+    ? navItems.filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : navItems;
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex font-sans selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Sidebar for Desktop */}
+    <div className="min-h-screen bg-[#F6F7F9] flex font-sans selection:bg-slate-900 selection:text-white">
+      {/* Desktop Sidebar */}
       <motion.aside 
-        initial={{ width: 320 }}
-        animate={{ width: isSidebarCollapsed ? 100 : 320 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="hidden md:flex flex-col bg-white border-r border-slate-100 print:hidden shadow-2xl shadow-slate-200/50 z-30 relative"
+        initial={{ width: 260 }}
+        animate={{ width: isSidebarCollapsed ? 80 : 260 }}
+        transition={{ type: "spring", stiffness: 350, damping: 32 }}
+        className="hidden md:flex flex-col bg-slate-950 text-slate-300 print:hidden z-30 relative border-r border-slate-900 shadow-xl"
       >
-        <div className={clsx("p-8 flex items-center gap-4", isSidebarCollapsed ? "justify-center" : "")}>
-          <div className="w-12 h-12 rounded-2xl shadow-lg shadow-indigo-200 ring-4 ring-indigo-50 shrink-0 overflow-hidden bg-white flex items-center justify-center">
-            <img src="/logo.png" alt="PrintLogicMx" className="w-full h-full object-contain p-1" />
+        {/* Brand Header */}
+        <div className={clsx("p-5 flex items-center gap-3 border-b border-slate-900", isSidebarCollapsed ? "justify-center" : "")}>
+          <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center shrink-0">
+            <Printer className="w-4 h-4 text-white" />
           </div>
           {!isSidebarCollapsed && (
             <motion.div 
-              initial={{ opacity: 0, x: -10 }}
+              initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
+              exit={{ opacity: 0, x: -6 }}
+              className="min-w-0"
             >
-              <span className="text-2xl font-black text-slate-900 tracking-tighter block leading-none">PrintLogic</span>
-              <span className="text-indigo-600 font-black text-sm tracking-widest uppercase">Mx</span>
+              <span className="text-base font-black text-white tracking-tight font-display">
+                Print<span className="text-blue-500">Fix</span>
+              </span>
+              <p className="text-[10px] text-slate-500 font-medium">Taller Profesional</p>
             </motion.div>
           )}
         </div>
 
+        {/* Collapse Toggle Button */}
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="absolute -right-3 top-12 bg-white border border-slate-100 rounded-full p-1.5 shadow-sm hover:bg-slate-50 text-slate-400 hover:text-indigo-600 transition-colors z-50"
+          className="absolute -right-3 top-6 bg-slate-900 border border-slate-800 text-slate-400 hover:text-white rounded-full p-1 shadow-sm transition-all active:scale-90 z-50 cursor-pointer"
+          title={isSidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
         >
           {isSidebarCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
         
-        <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar overflow-x-hidden">
+        {/* Navigation Links */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
           {!isSidebarCollapsed && (
-            <p className="px-4 mb-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Navegación</p>
+            <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-600">Navegación</p>
           )}
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
-              className={twMerge(
-                "w-full group flex items-center gap-4 px-4 py-4 rounded-[1.5rem] transition-all duration-300 relative overflow-hidden",
-                currentView === item.id
-                  ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 scale-100'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:scale-[1.02]',
-                isSidebarCollapsed ? "justify-center px-0" : ""
-              )}
-              title={isSidebarCollapsed ? item.label : undefined}
-            >
-              {currentView === item.id && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-indigo-600 rounded-[1.5rem] -z-10"
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                />
-              )}
-              <item.icon className={clsx("w-5 h-5 transition-transform duration-300 shrink-0", currentView === item.id ? 'scale-110' : 'group-hover:scale-110')} />
-              {!isSidebarCollapsed && (
-                <div className="flex-1 text-left z-10 min-w-0">
-                  <p className={clsx("text-sm font-bold leading-none truncate", currentView === item.id ? 'text-white' : 'text-slate-700')}>{item.label}</p>
-                  {currentView !== item.id && (
-                    <p className="text-[10px] opacity-50 mt-1.5 font-medium truncate">{item.description}</p>
-                  )}
-                </div>
-              )}
-              {!isSidebarCollapsed && currentView === item.id && <ChevronRight className="w-4 h-4 opacity-50 shrink-0" />}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isActive = currentView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onNavigate(item.id)}
+                className={twMerge(
+                  "w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 cursor-pointer select-none text-left",
+                  isActive
+                    ? 'bg-slate-900 text-white font-bold border border-slate-800 shadow-xs'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/60 font-medium',
+                  isSidebarCollapsed ? "justify-center px-0" : ""
+                )}
+                title={isSidebarCollapsed ? item.label : undefined}
+              >
+                <item.icon className={clsx("w-4 h-4 shrink-0 transition-transform", isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200')} />
+                
+                {!isSidebarCollapsed && (
+                  <span className="text-xs truncate font-medium flex-1">{item.label}</span>
+                )}
+
+                {!isSidebarCollapsed && isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className={clsx("m-6 bg-slate-50 rounded-[2rem] border border-slate-100 relative overflow-hidden group transition-all", isSidebarCollapsed ? "p-4" : "p-6")}>
-          {!isSidebarCollapsed && (
-            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Sparkles className="w-24 h-24 text-indigo-600 rotate-12" />
-            </div>
-          )}
-          <div className={clsx("flex items-center gap-4 mb-4 relative z-10", isSidebarCollapsed ? "justify-center mb-0" : "")}>
-            <div className="w-10 h-10 rounded-2xl bg-white border-2 border-white shadow-sm flex items-center justify-center shrink-0 overflow-hidden">
+        {/* User Card & Logout */}
+        <div className="p-3 border-t border-slate-900 bg-slate-950">
+          <div className={clsx("p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80 flex items-center gap-2.5", isSidebarCollapsed ? "justify-center p-2" : "")}>
+            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-xs font-bold text-white">
               {user.photoURL ? (
                 <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
               ) : (
-                <User className="w-5 h-5 text-indigo-600" />
+                user.name.charAt(0).toUpperCase()
               )}
             </div>
+            
             {!isSidebarCollapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-slate-900 truncate">{user.name}</p>
-                <p className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-wider">Administrador</p>
+                <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                <p className="text-[10px] text-slate-500 truncate font-mono">{user.email}</p>
               </div>
             )}
+
+            {!isSidebarCollapsed && (
+              <button
+                onClick={onLogout}
+                className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          {!isSidebarCollapsed && (
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black text-red-500 hover:bg-white hover:shadow-sm hover:text-red-600 transition-all relative z-10"
-            >
-              <LogOut className="w-4 h-4" />
-              Cerrar Sesión
-            </button>
-          )}
         </div>
       </motion.aside>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-50 print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center">
-            <img src="/logo.png" alt="PrintLogicMx" className="w-full h-full object-contain p-0.5" />
-          </div>
-          <span className="text-lg font-black text-slate-900 tracking-tight">PrintLogic<span className="text-indigo-600">Mx</span></span>
-        </div>
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-slate-600 bg-slate-50 rounded-xl"
-        >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Modern Top Header Bar */}
+        <header className="sticky top-0 z-20 h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 md:px-8 flex items-center justify-between gap-3 print:hidden">
+          {/* Left: Brand mark on mobile & Breadcrumbs */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
+              title="Menú"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="md:hidden fixed inset-0 top-16 bg-white z-40 p-6 flex flex-col"
-          >
-            <nav className="space-y-2">
-              {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onNavigate(item.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${
-                    currentView === item.id
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                      : 'bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <div className="text-left">
-                    <p className="text-sm font-bold">{item.label}</p>
-                    <p className={`text-[10px] ${currentView === item.id ? 'text-white/70' : 'text-slate-400'}`}>{item.description}</p>
-                  </div>
-                </button>
-              ))}
-            </nav>
-            <div className="mt-auto pt-6 border-t border-slate-100">
-              <div className="flex items-center gap-4 px-2 mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0">
-                  <User className="w-6 h-6 text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-slate-900 truncate">{user.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  onLogout();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-red-50 text-red-600 font-bold text-sm transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                Cerrar Sesión
-              </button>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+              <span className="hidden sm:inline hover:text-slate-900 cursor-pointer font-medium" onClick={() => onNavigate('dashboard')}>
+                Taller
+              </span>
+              <span className="hidden sm:inline text-slate-300">/</span>
+              <span className="font-bold text-slate-900 truncate">
+                {currentViewTitle}
+              </span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 pt-16 md:pt-0 print:pt-0">
-        <div className="flex-1 p-4 md:p-10 lg:p-12 overflow-y-auto print:p-0 print:overflow-visible">
-          <div className="max-w-6xl mx-auto">
+          {/* Center: Quick Search Trigger Button (Desktop & Tablet) */}
+          <div className="hidden sm:flex items-center flex-1 max-w-sm mx-2">
+            <button
+              onClick={() => setIsQuickSearchOpen(true)}
+              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-400 border border-slate-200/80 rounded-xl text-xs transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Search className="w-3.5 h-3.5 text-slate-400" />
+                <span>Navegación rápida...</span>
+              </div>
+              <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-500">
+                <Command className="w-2.5 h-2.5" /> K
+              </kbd>
+            </button>
+          </div>
+
+          {/* Right: Quick Action Buttons & Search Icon on Mobile */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Mobile Search Button */}
+            <button
+              onClick={() => setIsQuickSearchOpen(true)}
+              className="sm:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
+              title="Buscar"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
+            {currentView !== 'new' && (
+              <button
+                onClick={() => onNavigate('new')}
+                className="btn-tactile bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 sm:py-1.5 rounded-xl gap-1.5 shadow-xs cursor-pointer min-h-[40px] sm:min-h-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Nuevo Ingreso</span>
+                <span className="sm:hidden font-bold">Nuevo</span>
+              </button>
+            )}
+
+            {currentView !== 'sales' && (
+              <button
+                onClick={() => onNavigate('sales')}
+                className="btn-tactile hidden md:inline-flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-bold px-3 py-1.5 rounded-xl gap-1.5 cursor-pointer"
+              >
+                <ShoppingCart className="w-3.5 h-3.5 text-slate-500" />
+                <span>Ventas</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* Content Area - Extra padding on mobile to never clip behind bottom navigation */}
+        <main className="flex-1 p-3 md:p-6 lg:p-8 pb-32 md:pb-8 overflow-y-auto print:p-0">
+          <div className="max-w-7xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
               >
                 {children}
               </motion.div>
             </AnimatePresence>
           </div>
-        </div>
-      </main>
+        </main>
+
+        {/* Mobile Fixed Bottom Navigation Bar (Thumb Zone) */}
+        <nav 
+          aria-label="Navegación móvil"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 grid grid-cols-5 items-center px-1 h-16 pb-[env(safe-area-inset-bottom)] shadow-lg shadow-slate-900/10"
+        >
+          {mobileBottomTabs.map((tab) => {
+            const isActive = currentView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onNavigate(tab.id)}
+                className={clsx(
+                  "min-h-[48px] flex flex-col items-center justify-center gap-1 transition-all active:scale-90 cursor-pointer select-none",
+                  isActive ? "text-slate-950 font-bold" : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                <div className={clsx("p-1.5 rounded-xl transition-all", isActive ? "bg-slate-900 text-white shadow-xs" : "text-slate-500")}>
+                  <tab.icon className="w-4 h-4" />
+                </div>
+                <span className={clsx("text-[10px] tracking-tight leading-none", isActive ? "font-bold text-slate-900" : "font-medium text-slate-500")}>
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+
+          {/* Tab 5: "Más" Button to open drawer */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="min-h-[48px] flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-600 transition-all active:scale-90 cursor-pointer select-none"
+          >
+            <div className="p-1.5 rounded-xl text-slate-500">
+              <MoreHorizontal className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-medium text-slate-500 tracking-tight leading-none">
+              Más
+            </span>
+          </button>
+        </nav>
+      </div>
+
+      {/* Global Command Palette / Quick Search Modal */}
+      <AnimatePresence>
+        {isQuickSearchOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 md:pt-20 p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsQuickSearchOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="relative w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden z-10"
+            >
+              <div className="p-3 border-b border-slate-100 flex items-center gap-2.5">
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Ir a sección o buscar función..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full text-xs font-medium focus:outline-none py-1.5"
+                />
+                <button
+                  onClick={() => setIsQuickSearchOpen(false)}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-2 max-h-72 overflow-y-auto space-y-1">
+                {filteredNavItems.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-slate-400">No se encontraron opciones</p>
+                ) : (
+                  filteredNavItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        onNavigate(item.id);
+                        setIsQuickSearchOpen(false);
+                      }}
+                      className="w-full min-h-[44px] flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 text-left text-xs text-slate-700 hover:text-slate-900 transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <item.icon className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
+                        <span className="font-semibold">{item.label}</span>
+                      </div>
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+            />
+
+            <motion.div 
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              className="relative w-72 max-w-[85vw] bg-slate-950 text-slate-200 flex flex-col p-5 shadow-2xl z-10"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-900">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white">
+                    <Printer className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-base font-black text-white font-display">PrintFix</span>
+                    <p className="text-[10px] text-slate-500 font-medium">Taller Profesional</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
+                <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Secciones</p>
+                {navItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onNavigate(item.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={twMerge(
+                      "w-full min-h-[44px] flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer",
+                      currentView === item.id 
+                        ? 'bg-slate-900 text-white border border-slate-800 shadow-xs' 
+                        : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                    )}
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              <div className="pt-3 border-t border-slate-900 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate font-mono">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    onLogout();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -45,37 +45,37 @@ export function QuoteQRModal({ checkIn, onClose }: QuoteQRModalProps) {
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md my-auto relative overflow-hidden border border-slate-100 p-8 space-y-6 text-center"
+        className="bg-white rounded-2xl sm:rounded-[2.5rem] shadow-2xl w-full max-w-md my-auto relative overflow-hidden border border-slate-100 p-5 sm:p-8 space-y-5 sm:space-y-6 text-center"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 text-left">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-slate-100 text-left">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+            <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
               <QrCode className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Código QR de Cotización</h3>
-              <p className="text-[11px] font-bold text-slate-400">Acceso digital instantáneo</p>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">Código QR de Cotización</h3>
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-400">Acceso digital instantáneo</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 active:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* QR Code Frame */}
-        <div className="bg-gradient-to-br from-slate-50 to-indigo-50/40 p-6 rounded-[2rem] border border-slate-100 flex flex-col items-center justify-center relative group">
-          <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-100">
+        <div className="bg-gradient-to-br from-slate-50 to-indigo-50/40 p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-slate-100 flex flex-col items-center justify-center relative group">
+          <div className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl shadow-md border border-slate-100">
             <img 
               src={qrImageUrl} 
               alt="Código QR de Cotización" 
-              className="w-56 h-56 object-contain rounded-lg"
+              className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-lg"
             />
           </div>
-          <p className="text-[11px] font-bold text-slate-500 mt-4 flex items-center gap-1.5">
+          <p className="text-[11px] font-bold text-slate-500 mt-3 sm:mt-4 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Escanea con cualquier cámara de smartphone
           </p>
         </div>

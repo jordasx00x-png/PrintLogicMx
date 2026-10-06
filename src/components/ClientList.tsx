@@ -145,47 +145,49 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
             transition={{ delay: index * 0.05 }}
             className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-8 hover:shadow-xl hover:-translate-y-1 transition-all group relative"
           >
-            {/* Actions */}
-            <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions: Always visible on mobile, subtle on hover on desktop */}
+            <div className="absolute top-4 sm:top-6 right-4 sm:right-6 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
               <button 
                 onClick={() => {
                   setEditingClient(client);
                   setIsModalOpen(true);
                 }}
-                className="p-2 bg-slate-100 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-colors"
+                className="min-h-[40px] min-w-[40px] flex items-center justify-center p-2 bg-slate-100 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-xl transition-colors cursor-pointer"
+                title="Editar cliente"
               >
                 <Edit className="w-4 h-4" />
               </button>
               {client.id && (
                 <button 
                   onClick={() => setDeletingClient(client)}
-                  className="p-2 bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors"
+                  className="min-h-[40px] min-w-[40px] flex items-center justify-center p-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl transition-colors cursor-pointer"
+                  title="Eliminar cliente"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            <div className="flex items-start gap-5 mb-8">
-              <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 transition-colors duration-500 ${
+            <div className="flex items-start gap-4 sm:gap-5 mb-6">
+              <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shrink-0 transition-colors duration-300 ${
                 // @ts-ignore
-                client.isUnregistered ? 'bg-slate-100' : 'bg-indigo-50 group-hover:bg-indigo-600'
+                client.isUnregistered ? 'bg-slate-100' : 'bg-indigo-50 sm:group-hover:bg-indigo-600'
               }`}>
-                <User className={`w-8 h-8 transition-colors duration-500 ${
+                <User className={`w-7 h-7 sm:w-8 sm:h-8 transition-colors duration-300 ${
                   // @ts-ignore
-                  client.isUnregistered ? 'text-slate-400' : 'text-indigo-600 group-hover:text-white'
+                  client.isUnregistered ? 'text-slate-400' : 'text-indigo-600 sm:group-hover:text-white'
                 }`} />
               </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{client.name}</h3>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+              <div className="min-w-0 pr-16 sm:pr-0">
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-tight truncate">{client.name}</h3>
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
                     <Calendar className="w-3 h-3" />
                     {client.checkInCount} {client.checkInCount === 1 ? 'ingreso' : 'ingresos'}
                   </div>
                   {/* @ts-ignore */}
                   {client.isUnregistered && (
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-1.5 rounded-xl border border-amber-100">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
                       No registrado
                     </span>
                   )}
@@ -193,25 +195,53 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
               </div>
             </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                  <Phone className="w-4 h-4 text-slate-400" />
+            <div className="space-y-2.5">
+              {/* Phone + Direct WhatsApp / Call bar */}
+              <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-xs shrink-0">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-slate-700 truncate">{client.phone}</span>
                 </div>
-                <span className="text-sm font-bold text-slate-600">{client.phone}</span>
-              </div>
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                  <Mail className="w-4 h-4 text-slate-400" />
+                <div className="flex items-center gap-1 shrink-0">
+                  <a
+                    href={`tel:${client.phone.replace(/\s+/g, '')}`}
+                    className="min-h-[38px] min-w-[38px] p-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg flex items-center justify-center active:scale-95 transition-all"
+                    title="Llamar"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                  </a>
+                  <a
+                    href={`https://wa.me/${client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola ${client.name}, le contactamos de PrintFix servicio técnico.`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="min-h-[38px] px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-black flex items-center gap-1 active:scale-95 transition-all"
+                    title="WhatsApp"
+                  >
+                    <span>WA</span>
+                  </a>
                 </div>
-                <span className="text-sm font-bold text-slate-600 truncate">{client.email}</span>
               </div>
+
+              {client.email && (
+                <a 
+                  href={`mailto:${client.email}`}
+                  className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-100 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-xs shrink-0">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-slate-600 truncate">{client.email}</span>
+                </a>
+              )}
+
               {client.address && (
-                <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm shrink-0">
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
                     <MapPin className="w-4 h-4 text-slate-400" />
                   </div>
-                  <span className="text-sm font-bold text-slate-600 line-clamp-2">{client.address}</span>
+                  <span className="text-xs font-medium text-slate-600 line-clamp-2">{client.address}</span>
                 </div>
               )}
             </div>

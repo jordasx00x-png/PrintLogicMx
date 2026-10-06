@@ -83,32 +83,32 @@ export function SalesList({ sales, onNewSale, onViewSale }: SalesListProps) {
             <div
               key={sale.id}
               onClick={() => onViewSale(sale)}
-              className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] border border-slate-100 shadow-xs hover:shadow-md active:bg-slate-50 transition-all cursor-pointer group"
             >
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${statusConfig.bg}`}>
-                    <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 ${statusConfig.bg}`}>
+                    <StatusIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${statusConfig.color}`} />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900">{sale.client.name}</h3>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <span>{new Date(sale.createdAt).toLocaleDateString()}</span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">{sale.client.name}</h3>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono">
+                      <span>{new Date(sale.createdAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
                       <span>•</span>
-                      <span>{sale.items.length} artículo(s)</span>
+                      <span>{sale.items.length} {sale.items.length === 1 ? 'ítem' : 'ítems'}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                  <div className="text-left md:text-right">
-                    <p className="text-sm text-slate-500 font-medium">Total</p>
-                    <p className="text-lg font-black text-slate-900">${sale.total.toFixed(2)}</p>
+                <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="text-left sm:text-right">
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Total</p>
+                    <p className="text-base sm:text-lg font-black text-slate-900 font-mono">${sale.total.toFixed(2)}</p>
                   </div>
-                  <div className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest ${statusConfig.bg} ${statusConfig.color}`}>
+                  <div className={`px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider ${statusConfig.bg} ${statusConfig.color}`}>
                     {statusConfig.label}
                   </div>
-                  <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-indigo-500 transition-colors hidden md:block" />
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-700 transition-colors hidden sm:block" />
                 </div>
               </div>
             </div>

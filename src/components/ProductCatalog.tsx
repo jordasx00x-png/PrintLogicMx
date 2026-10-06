@@ -168,10 +168,10 @@ export function ProductCatalog({
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`p-4 rounded-2xl font-bold text-xs flex flex-col justify-between gap-2 border transition-all text-left group ${
+              className={`p-4 rounded-2xl font-black text-xs flex flex-col justify-between gap-2 border transition-all duration-300 text-left group active:scale-[0.96] hover:scale-[1.02] transform cursor-pointer ${
                 isActive
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10 scale-[1.02]'
-                  : 'bg-white text-slate-600 border-slate-100 hover:border-slate-200 hover:bg-slate-50'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10'
+                  : 'bg-white text-slate-600 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
               <span className={`text-[10px] uppercase font-black tracking-wider ${isActive ? 'text-indigo-400' : 'text-slate-400'}`}>
@@ -354,10 +354,93 @@ export function ProductCatalog({
           </div>
         </div>
 
-        {/* Product List / Table View */}
+        {/* Product List: Mobile Cards (md:hidden) + Desktop Table (hidden md:block) */}
         {filteredProducts.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <>
+            {/* Mobile Card Feed */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {paginatedProducts.map((product) => {
+                const pCost = product.cost || 0;
+                const pPrice = product.price || 0;
+                const pProfit = Math.max(0, pPrice - pCost);
+                const pMargin = pPrice > 0 ? ((pProfit / pPrice) * 100).toFixed(0) : '0';
+
+                return (
+                  <div key={product.id} className="p-4 space-y-3 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            <Tag className="w-2.5 h-2.5" />
+                            {product.category}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-sm text-slate-900 mt-1 truncate">
+                          {product.name}
+                        </h3>
+                        {product.description && (
+                          <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
+                            {product.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Touch Action Buttons */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(product)}
+                          className="min-h-[42px] min-w-[42px] flex items-center justify-center p-2 text-slate-500 hover:text-indigo-600 active:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingProduct(product)}
+                          className="min-h-[42px] min-w-[42px] flex items-center justify-center p-2 text-slate-500 hover:text-red-600 active:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Pricing & Margins Card */}
+                    <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Costo Interno
+                        </span>
+                        <p className="text-xs font-mono font-bold text-slate-600 mt-0.5">
+                          ${pCost.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          Precio Venta
+                        </span>
+                        <p className="text-sm font-mono font-black text-slate-900 mt-0.5">
+                          ${pPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2 pt-1 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500 font-medium">Margen estimado:</span>
+                        <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/80">
+                          +${pProfit.toFixed(2)} ({pMargin}%)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                   <th className="px-8 py-5">Item</th>
@@ -460,7 +543,8 @@ export function ProductCatalog({
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         ) : (
           /* High-Craft Professional Empty State */
           <div className="p-16 text-center space-y-6 max-w-lg mx-auto">

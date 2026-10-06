@@ -17,7 +17,7 @@ import {
   seedServerDataToFirestore
 } from '../lib/firestoreService';
 
-export function useStore() {
+export function useStore(isAuthenticated: boolean = false) {
   const [rawCheckIns, setRawCheckIns] = useState<CheckIn[]>([]);
   const [rawSales, setRawSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -80,11 +80,15 @@ export function useStore() {
   }, []);
 
   useEffect(() => {
-    // Initial fetch from backend
-    fetchData().then(() => {
-      // Seed to Firestore if Firestore is empty
-      seedServerDataToFirestore();
-    });
+    // Initial fetch from local backend
+    fetchData();
+
+    if (!isAuthenticated) {
+      return;
+    }
+
+    // Seed to Firestore only when authenticated
+    seedServerDataToFirestore();
 
     // Subscribe to Firestore Real-Time updates across devices
     const unsubCheckIns = subscribeCheckIns((data) => setRawCheckIns(data));
@@ -98,7 +102,7 @@ export function useStore() {
       unsubClients();
       unsubSales();
     };
-  }, [fetchData]);
+  }, [isAuthenticated, fetchData]);
 
   // CRUD Methods with dual local + Firestore persistence
   const addClient = async (client: Client) => {
@@ -346,6 +350,25 @@ export function useStore() {
     await saveCheckInToFirestore(updatedCheckIn);
   };
 
+  const updatePrinter = async (id: string, printer: CheckIn['printer']) => {
+    const checkInToUpdate = checkIns.find(c => c.id === id);
+    if (!checkInToUpdate) return;
+
+    const updatedCheckIn: CheckIn = { ...checkInToUpdate, printer };
+
+    setRawCheckIns(prev => prev.map(c => c.id === id ? updatedCheckIn : c));
+
+    // Local DB
+    fetch(`/api/checkins/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCheckIn),
+    }).catch(e => console.error(e));
+
+    // Firestore Sync
+    await saveCheckInToFirestore(updatedCheckIn);
+  };
+
   const deleteCheckIn = async (id: string) => {
     setRawCheckIns(prev => prev.filter(c => c.id !== id));
 
@@ -451,6 +474,7 @@ export function useStore() {
     stats,
     addCheckIn, 
     updateCheckInStatus, 
+    updatePrinter,
     addQuote, 
     updateQuote, 
     markQuoteAsSent, 

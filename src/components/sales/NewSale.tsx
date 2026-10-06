@@ -115,7 +115,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 pb-20">
+    <div className="max-w-4xl mx-auto space-y-6 md:space-y-10 pb-36 md:pb-20">
       <div className="flex items-center gap-4">
         <button 
           onClick={onCancel}
@@ -387,6 +387,36 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                 placeholder="Notas internas o comentarios para el cliente..."
               />
             </div>
+          </div>
+        </div>
+
+        {/* Sticky Mobile Bottom Bar (Thumb Zone) */}
+        <div className="md:hidden fixed bottom-16 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200/90 z-30 flex items-center justify-between gap-3 shadow-lg">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">Total</span>
+            <span className="text-base font-black text-slate-900 font-mono">${total.toFixed(2)}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="h-11 px-3 rounded-xl text-slate-500 font-bold text-xs flex items-center justify-center active:scale-95 transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || items.length === 0}
+              className="h-11 px-4 bg-slate-950 active:bg-slate-800 disabled:bg-slate-400 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 active:scale-98 shadow-sm transition-all cursor-pointer"
+            >
+              {isSaving ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              <span>{isSaving ? 'Guardando...' : 'Guardar Cotización'}</span>
+            </button>
           </div>
         </div>
       </form>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Users, 
   ClipboardList, 
@@ -8,14 +8,16 @@ import {
   Clock, 
   Package, 
   ArrowRight, 
-  Star, 
   ShieldCheck, 
-  Zap,
-  Wrench,
-  Sparkles,
-  ShoppingBag,
-  Layers,
-  CalendarDays
+  Wrench, 
+  ShoppingBag, 
+  Layers, 
+  CalendarDays,
+  Plus,
+  Barcode,
+  Search,
+  ChevronRight,
+  Printer
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { CheckIn } from '../types';
@@ -34,6 +36,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ stats, checkIns, onViewDetails, onNavigate }: DashboardProps) {
+  const [quickSerialQuery, setQuickSerialQuery] = useState('');
   const recentCheckIns = checkIns.slice(0, 6);
 
   // Compute live pipeline breakdown
@@ -47,12 +50,20 @@ export function Dashboard({ stats, checkIns, onViewDetails, onNavigate }: Dashbo
     };
   }, [checkIns]);
 
-  // Generate real monthly trend from checkIns
+  // Live Serial Number Quick Lookup
+  const matchedSerialResults = useMemo(() => {
+    if (!quickSerialQuery.trim() || quickSerialQuery.trim().length < 2) return [];
+    const q = quickSerialQuery.trim().toLowerCase();
+    return checkIns.filter(c => 
+      c.printer?.serialNumber && c.printer.serialNumber.toLowerCase().includes(q)
+    );
+  }, [checkIns, quickSerialQuery]);
+
+  // Generate monthly trend from checkIns
   const chartData = useMemo(() => {
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     const currentMonthIdx = new Date().getMonth();
     
-    // Last 6 months
     const lastSixMonths = [];
     for (let i = 5; i >= 0; i--) {
       const idx = (currentMonthIdx - i + 12) % 12;
@@ -79,250 +90,353 @@ export function Dashboard({ stats, checkIns, onViewDetails, onNavigate }: Dashbo
   });
 
   return (
-    <div className="space-y-8 md:space-y-10 pb-16">
-      {/* Executive Welcome Hero Banner */}
-      <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-900 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl shadow-indigo-200 relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-8 border border-indigo-500/20">
-        <div className="relative z-10 space-y-4 max-w-xl">
-          <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-white/15 backdrop-blur-md rounded-2xl text-xs font-black uppercase tracking-widest text-indigo-100 border border-white/10">
-            <CalendarDays className="w-3.5 h-3.5" />
-            <span className="capitalize">{todayFormatted}</span>
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-tight">
-            Gestión Inteligente de Taller
-          </h1>
-
-          <p className="text-indigo-100 text-base md:text-lg font-medium leading-relaxed">
-            Tienes <span className="text-white font-black underline decoration-indigo-300 decoration-2 underline-offset-4">{stats.pendingRepairs} equipos</span> en proceso de diagnóstico o reparación activa.
-          </p>
-        </div>
-
-        {/* Live Metric Cards Stack */}
-        <div className="relative z-10 flex flex-wrap sm:flex-nowrap gap-4">
-          <div className="bg-white/10 backdrop-blur-xl p-6 rounded-[2rem] border border-white/20 flex flex-col items-center justify-center text-center w-36 shadow-lg">
-            <p className="text-3xl font-black mb-1">{stats.repairedToday}</p>
-            <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Listas hoy</p>
-          </div>
-
-          <div className="bg-white text-slate-900 p-6 rounded-[2rem] flex flex-col items-center justify-center text-center w-36 shadow-2xl shrink-0">
-            <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center mb-2 text-indigo-600">
-              <Zap className="w-5 h-5 fill-current" />
+    <div className="space-y-6 md:space-y-8 pb-16">
+      {/* Hero Welcome Banner */}
+      <div className="bg-slate-950 text-white rounded-2xl p-6 md:p-8 border border-slate-800 shadow-md">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-xl">
+            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+              <CalendarDays className="w-3.5 h-3.5 text-slate-300" />
+              <span className="capitalize">{todayFormatted}</span>
+              <span aria-hidden="true">·</span>
+              <span>Taller Activo</span>
             </div>
-            <p className="text-xs font-black uppercase tracking-wider text-slate-900">En Línea</p>
-            <p className="text-[10px] font-bold text-slate-400">Sincronizado</p>
+
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight font-display">
+              Panel Operativo PrintFix
+            </h1>
+
+            <p className="text-slate-300 text-xs md:text-sm font-normal leading-relaxed">
+              Actualmente hay <span className="text-white font-bold font-mono tabular-nums">{stats.pendingRepairs} equipos</span> en flujo activo de diagnóstico y servicio técnico.
+            </p>
+          </div>
+
+          {/* Quick CTA Actions */}
+          <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto shrink-0">
+            <button
+              onClick={() => onNavigate('new')}
+              className="btn-tactile bg-white hover:bg-slate-100 text-slate-950 px-3.5 sm:px-4 py-3 sm:py-2.5 rounded-xl font-bold text-xs gap-1.5 sm:gap-2 shadow-xs cursor-pointer min-h-[44px] flex items-center justify-center"
+            >
+              <Plus className="w-4 h-4 text-slate-900" />
+              <span>Nuevo Ingreso</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('sales')}
+              className="btn-tactile bg-slate-900 hover:bg-slate-800 text-white border border-slate-700/80 px-3.5 sm:px-4 py-3 sm:py-2.5 rounded-xl font-bold text-xs gap-1.5 sm:gap-2 cursor-pointer min-h-[44px] flex items-center justify-center"
+            >
+              <ShoppingBag className="w-4 h-4 text-emerald-400" />
+              <span>Nueva Venta</span>
+            </button>
           </div>
         </div>
-
-        {/* Decorative Orbs */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full -ml-20 -mb-20 blur-2xl pointer-events-none"></div>
       </div>
 
-      {/* Primary Metric Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPI Metric Bento Grid (2 columns on mobile, 4 on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {[
-          { label: 'Ingresos Totales', value: `$${stats.totalSales.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'indigo', badge: 'Ventas + Reparaciones' },
-          { label: 'En Diagnóstico / Proceso', value: stats.pendingRepairs, icon: Clock, color: 'amber', badge: 'Pendientes' },
-          { label: 'Equipos Reparados', value: stats.repairedToday, icon: CheckCircle2, color: 'emerald', badge: 'Completados' },
-          { label: 'Clientes Registrados', value: stats.totalClients, icon: Users, color: 'slate', badge: 'Directorio' },
+          { 
+            label: 'Ingresos Totales', 
+            value: `$${stats.totalSales.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`, 
+            icon: DollarSign, 
+            badge: 'Facturado',
+            color: 'text-blue-600 bg-blue-50 border-blue-100',
+            route: 'sales'
+          },
+          { 
+            label: 'En Taller', 
+            value: stats.pendingRepairs, 
+            icon: Clock, 
+            badge: 'En Proceso',
+            color: 'text-amber-600 bg-amber-50 border-amber-100',
+            route: 'list'
+          },
+          { 
+            label: 'Reparados Hoy', 
+            value: stats.repairedToday, 
+            icon: CheckCircle2, 
+            badge: 'Listos',
+            color: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+            route: 'list'
+          },
+          { 
+            label: 'Clientes Activos', 
+            value: stats.totalClients, 
+            icon: Users, 
+            badge: 'Directorio',
+            color: 'text-slate-600 bg-slate-100 border-slate-200',
+            route: 'clients'
+          },
         ].map((stat, idx) => (
-          <motion.div 
+          <div 
             key={idx}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.08 }}
-            className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden"
+            onClick={() => onNavigate(stat.route)}
+            className="card-premium p-3.5 sm:p-5 cursor-pointer group select-none flex flex-col justify-between active:scale-[0.98] transition-all"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50/70 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-300 flex items-center justify-center text-indigo-600">
-                <stat.icon className="w-7 h-7" />
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center border ${stat.color} transition-transform group-hover:scale-105 duration-150`}>
+                <stat.icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-slate-100 text-slate-600 rounded-xl">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 {stat.badge}
               </span>
             </div>
 
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">{stat.label}</p>
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</h3>
+              <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mb-0.5 truncate">{stat.label}</p>
+              <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight font-mono tabular-nums truncate">
+                {stat.value}
+              </h3>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
-      {/* Live Pipeline Flow Tracker */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-              <Layers className="w-5 h-5" />
+      {/* Interactive Workshop Pipeline Stage Flow */}
+      <div className="card-premium p-5 md:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700">
+              <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Estado de Reparaciones en Taller</h2>
-              <p className="text-xs text-slate-400 font-medium">Flujo de trabajo en tiempo real</p>
+              <h2 className="text-sm font-bold text-slate-900">Flujo de Reparaciones en Taller</h2>
+              <p className="text-[11px] text-slate-500">Selecciona cualquier estado para ver los equipos correspondientes</p>
             </div>
           </div>
 
           <button
             onClick={() => onNavigate('list')}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 self-start sm:self-auto"
+            className="btn-tactile text-xs font-bold text-slate-900 hover:text-blue-600 flex items-center gap-1 self-start sm:self-auto cursor-pointer"
           >
-            Ver todos los ingresos <ArrowRight className="w-4 h-4" />
+            <span>Ver listado completo</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { status: 'Por Cotizar', count: pipelineStats.ingresado, bg: 'bg-amber-50 text-amber-800 border-amber-200/60', iconColor: 'text-amber-600' },
-            { status: 'Cotizados', count: pipelineStats.cotizado, bg: 'bg-blue-50 text-blue-800 border-blue-200/60', iconColor: 'text-blue-600' },
-            { status: 'Aceptados', count: pipelineStats.aceptado, bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/60', iconColor: 'text-indigo-600' },
-            { status: 'Reparados', count: pipelineStats.reparado, bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/60', iconColor: 'text-emerald-600' },
-            { status: 'Entregados', count: pipelineStats.entregado, bg: 'bg-slate-50 text-slate-800 border-slate-200/60', iconColor: 'text-slate-600' },
+            { status: 'Ingresados', key: 'Ingresado', count: pipelineStats.ingresado, dot: 'bg-amber-500' },
+            { status: 'Cotizados', key: 'Cotizado', count: pipelineStats.cotizado, dot: 'bg-blue-500' },
+            { status: 'Aceptados', key: 'Aceptado', count: pipelineStats.aceptado, dot: 'bg-violet-500' },
+            { status: 'Reparados', key: 'Reparado', count: pipelineStats.reparado, dot: 'bg-emerald-500' },
+            { status: 'Entregados', key: 'Entregado', count: pipelineStats.entregado, dot: 'bg-slate-500' },
           ].map((stage, idx) => (
-            <div key={idx} className={`p-5 rounded-2xl border ${stage.bg} flex flex-col justify-between gap-3`}>
-              <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{stage.status}</span>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black">{stage.count}</span>
-                <span className="text-xs font-bold opacity-60">equipos</span>
+            <button
+              key={idx}
+              onClick={() => onNavigate('list')}
+              className="btn-tactile p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-100/60 flex flex-col justify-between gap-2 text-left cursor-pointer transition-all"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${stage.dot}`} />
+                <span className="text-[11px] font-bold text-slate-700">{stage.status}</span>
               </div>
-            </div>
+              <div className="flex items-baseline justify-between w-full">
+                <span className="text-xl font-black font-mono tabular-nums text-slate-900">{stage.count}</span>
+                <span className="text-[10px] text-slate-400 font-medium">equipos</span>
+              </div>
+            </button>
           ))}
         </div>
       </div>
 
+      {/* Interactive Quick Warranty / S/N Lookup Widget */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 md:p-6 border border-slate-800 shadow-xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-sm font-bold text-white">Consulta Rápida de Garantía y Serie</h2>
+            </div>
+            <p className="text-xs text-slate-400">
+              Ingresa el número de serie (S/N) de cualquier impresora para verificar si ya fue reparada o si tiene garantía activa.
+            </p>
+          </div>
+
+          <div className="relative w-full md:w-80">
+            <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Ej: SN-48192 o modelo..."
+              value={quickSerialQuery}
+              onChange={(e) => setQuickSerialQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 uppercase"
+            />
+          </div>
+        </div>
+
+        {/* Live Search Match Dropdown / List */}
+        {quickSerialQuery.trim().length >= 2 && (
+          <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
+            {matchedSerialResults.length === 0 ? (
+              <p className="text-xs text-slate-400 py-1 font-mono">
+                No hay ingresos previos registrados con el número de serie "{quickSerialQuery}". Este equipo ingresaría como nuevo.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {matchedSerialResults.map((match) => {
+                  const daysAgo = Math.floor((Date.now() - new Date(match.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                  const isRecent = daysAgo <= 90;
+                  return (
+                    <div
+                      key={match.id}
+                      onClick={() => onViewDetails(match.id)}
+                      className="p-3 bg-slate-800/90 hover:bg-slate-800 border border-slate-700 rounded-xl text-xs cursor-pointer transition-colors space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-emerald-400">{match.printer.serialNumber}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                          isRecent ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-300'
+                        }`}>
+                          {isRecent ? `En garantía (${daysAgo}d)` : `Hace ${daysAgo}d`}
+                        </span>
+                      </div>
+                      <p className="font-bold text-white truncate">{match.printer.brand} {match.printer.model}</p>
+                      <p className="text-[11px] text-slate-400 truncate">Cliente: {match.client?.name || 'S/N'}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Main Grid: Recent Activity Stream & Analytics Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity Stream */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-6">
+        <div className="lg:col-span-2 card-premium p-5 md:p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Ingresos Recientes</h2>
-              <p className="text-xs text-slate-400 font-medium">Últimos equipos recibidos para diagnóstico</p>
+              <h2 className="text-sm font-bold text-slate-900">Ingresos Recientes en Taller</h2>
+              <p className="text-xs text-slate-400">Últimos equipos recepcionados</p>
             </div>
             <button 
               onClick={() => onNavigate('list')}
-              className="text-xs font-black text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5"
+              className="btn-tactile text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
             >
-              Ver Lista Completa <ArrowRight className="w-4 h-4" />
+              <span>Ver todos</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recentCheckIns.length > 0 ? (
               recentCheckIns.map((c) => (
-                <button
+                <div
                   key={c.id}
                   onClick={() => onViewDetails(c.id)}
-                  className="w-full flex items-center justify-between p-4 bg-slate-50/70 hover:bg-indigo-50/50 border border-slate-100 hover:border-indigo-100 rounded-2xl transition-all text-left group"
+                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 hover:bg-slate-100/80 border border-slate-200/70 text-left cursor-pointer transition-colors group"
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shrink-0 shadow-sm text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                      <Wrench className="w-5 h-5" />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 text-slate-600 group-hover:text-blue-600">
+                      <Printer className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                      <p className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                         {c.client?.name || 'Cliente sin nombre'}
                       </p>
-                      <p className="text-xs font-medium text-slate-400 truncate">
-                        {c.printer?.brand} {c.printer?.model} — <span className="text-slate-500">{c.printer?.problem}</span>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {c.printer?.brand} {c.printer?.model} · <span className="text-slate-400">{c.printer?.problem}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0 ml-4">
-                    <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl border ${
-                      c.printer?.status === 'Ingresado' ? 'bg-amber-50 text-amber-700 border-amber-200/60' :
-                      c.printer?.status === 'Cotizado' ? 'bg-blue-50 text-blue-700 border-blue-200/60' :
-                      c.printer?.status === 'Aceptado' ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' :
-                      c.printer?.status === 'Reparado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' :
-                      'bg-slate-100 text-slate-700 border-slate-200'
-                    }`}>
+                  <div className="flex items-center gap-2.5 shrink-0 ml-3">
+                    {c.printer?.serialNumber && (
+                      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
+                        <Barcode className="w-3 h-3 text-slate-400" />
+                        {c.printer.serialNumber}
+                      </span>
+                    )}
+
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
                       {c.printer?.status || 'Ingresado'}
                     </span>
-                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
                   </div>
-                </button>
+                </div>
               ))
             ) : (
-              <div className="py-12 text-center text-slate-400 space-y-3">
-                <ClipboardList className="w-12 h-12 mx-auto text-slate-200" />
-                <p className="text-sm font-bold">No hay ingresos registrados aún</p>
+              <div className="py-10 text-center text-slate-400 space-y-2">
+                <ClipboardList className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="text-xs font-bold">No hay ingresos registrados aún</p>
+                <button
+                  onClick={() => onNavigate('new')}
+                  className="btn-tactile-primary px-3.5 py-1.5 text-xs rounded-lg mt-2"
+                >
+                  Registrar Primer Equipo
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Analytics Chart & Quick Shortcuts */}
-        <div className="space-y-8">
+        {/* Analytics Trend & Shortcuts */}
+        <div className="space-y-6">
           {/* Chart Section */}
-          <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+          <div className="card-premium p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-black text-slate-900 tracking-tight">Tendencia de Servicios</h3>
-                <p className="text-xs text-slate-400 font-medium">Volumen mensual de reparaciones</p>
+                <h3 className="text-sm font-bold text-slate-900">Volumen Mensual</h3>
+                <p className="text-[11px] text-slate-400">Tendencia de reparaciones</p>
               </div>
-              <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-                <TrendingUp className="w-4 h-4" />
+              <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
+                <TrendingUp className="w-3.5 h-3.5" />
               </div>
             </div>
 
-            <div className="h-44 w-full pt-2">
+            <div className="h-40 w-full pt-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id="colorReparaciones" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.35}/>
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#94a3b8'}} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '14px', border: 'none', boxShadow: '0 10px 25px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgb(0 0 0 / 0.05)', fontSize: '11px' }}
                   />
-                  <Area type="monotone" dataKey="reparaciones" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorReparaciones)" />
+                  <Area type="monotone" dataKey="reparaciones" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorTrend)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Executive Quick Actions */}
-          <div className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
-            <h3 className="text-base font-black text-slate-900 tracking-tight">Acciones Frecuentes</h3>
+          {/* Quick Shortcuts */}
+          <div className="card-premium p-5 space-y-2.5">
+            <h3 className="text-sm font-bold text-slate-900">Accesos Rápidos</h3>
             
-            <div className="space-y-3">
-              <button 
-                onClick={() => onNavigate('new')}
-                className="w-full flex items-center justify-between p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <ClipboardList className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-black">Nuevo Ingreso</p>
-                    <p className="text-[10px] text-indigo-200 font-medium">Registrar Equipo</p>
-                  </div>
+            <button 
+              onClick={() => onNavigate('new')}
+              className="btn-tactile w-full flex items-center justify-between p-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Plus className="w-4 h-4 text-white" />
+                <div>
+                  <p className="text-xs font-bold">Nuevo Ingreso</p>
+                  <p className="text-[10px] text-slate-400">Recepción de impresora</p>
                 </div>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
 
-              <button 
-                onClick={() => onNavigate('sales')}
-                className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-2xl border border-slate-100 transition-all active:scale-95 group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-black">Ventas y Refacciones</p>
-                    <p className="text-[10px] text-slate-400 font-medium">Crear Cotización / Venta</p>
-                  </div>
+            <button 
+              onClick={() => onNavigate('products')}
+              className="btn-tactile w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 text-slate-800 rounded-xl border border-slate-200/80 cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Package className="w-4 h-4 text-slate-600" />
+                <div>
+                  <p className="text-xs font-bold">Catálogo de Refacciones</p>
+                  <p className="text-[10px] text-slate-400">Gestión de costos y precios</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
           </div>
         </div>
       </div>
