@@ -83,14 +83,10 @@ export function useStore(isAuthenticated: boolean = false) {
     // Initial fetch from local backend
     fetchData();
 
-    if (!isAuthenticated) {
-      return;
-    }
-
-    // Seed to Firestore only when authenticated
+    // Seed to Firestore on startup
     seedServerDataToFirestore();
 
-    // Subscribe to Firestore Real-Time updates across devices
+    // Subscribe to Firestore Real-Time updates across devices (Mobile <-> PC)
     const unsubCheckIns = subscribeCheckIns((data) => setRawCheckIns(data));
     const unsubProducts = subscribeProducts((data) => setProducts(data));
     const unsubClients = subscribeClients((data) => setClients(data));
@@ -102,7 +98,7 @@ export function useStore(isAuthenticated: boolean = false) {
       unsubClients();
       unsubSales();
     };
-  }, [isAuthenticated, fetchData]);
+  }, [fetchData]);
 
   // CRUD Methods with dual local + Firestore persistence
   const addClient = async (client: Client) => {

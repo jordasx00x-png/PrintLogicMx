@@ -43,9 +43,6 @@ const settingsCol = collection(db, 'company_settings');
 
 // Real-time Subscriptions
 export function subscribeCheckIns(onUpdate: (data: CheckIn[]) => void) {
-  if (!auth.currentUser) {
-    return () => {};
-  }
   return onSnapshot(
     checkinsCol,
     (snapshot) => {
@@ -58,9 +55,6 @@ export function subscribeCheckIns(onUpdate: (data: CheckIn[]) => void) {
 }
 
 export function subscribeProducts(onUpdate: (data: Product[]) => void) {
-  if (!auth.currentUser) {
-    return () => {};
-  }
   return onSnapshot(
     productsCol,
     (snapshot) => {
@@ -72,9 +66,6 @@ export function subscribeProducts(onUpdate: (data: Product[]) => void) {
 }
 
 export function subscribeClients(onUpdate: (data: Client[]) => void) {
-  if (!auth.currentUser) {
-    return () => {};
-  }
   return onSnapshot(
     clientsCol,
     (snapshot) => {
@@ -86,9 +77,6 @@ export function subscribeClients(onUpdate: (data: Client[]) => void) {
 }
 
 export function subscribeSales(onUpdate: (data: Sale[]) => void) {
-  if (!auth.currentUser) {
-    return () => {};
-  }
   return onSnapshot(
     salesCol,
     (snapshot) => {
@@ -101,9 +89,6 @@ export function subscribeSales(onUpdate: (data: Sale[]) => void) {
 }
 
 export function subscribeSettings(onUpdate: (data: CompanySettings) => void) {
-  if (!auth.currentUser) {
-    return () => {};
-  }
   return onSnapshot(
     doc(db, 'company_settings', 'default'),
     (snapshot) => {
@@ -216,9 +201,6 @@ export async function saveSettingsToFirestore(settings: CompanySettings) {
 
 // Migration / Seeding Helper: Syncs initial server data to Firestore if Firestore is empty
 export async function seedServerDataToFirestore() {
-  if (!auth.currentUser) {
-    return;
-  }
   try {
     const checkinsSnap = await getDocs(checkinsCol);
     if (checkinsSnap.empty) {

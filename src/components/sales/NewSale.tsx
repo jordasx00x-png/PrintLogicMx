@@ -357,7 +357,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                 <button
                   type="submit"
                   disabled={isSaving || items.length === 0}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 group disabled:cursor-not-allowed"
+                  className="hidden md:flex w-full items-center justify-center gap-3 px-6 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-black rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 group disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -369,7 +369,7 @@ export function NewSale({ onSave, onCancel, clients, products, isSaving }: NewSa
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="w-full mt-4 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                  className="hidden md:block w-full mt-4 py-4 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Cancelar
                 </button>

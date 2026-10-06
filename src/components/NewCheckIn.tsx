@@ -543,7 +543,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white text-sm font-bold rounded-2xl shadow-lg transition-all active:scale-95 group disabled:cursor-not-allowed cursor-pointer"
+                  className="hidden md:flex w-full items-center justify-center gap-3 px-6 py-4 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white text-sm font-bold rounded-2xl shadow-lg transition-all active:scale-95 group disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isSaving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -555,7 +555,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 <button
                   type="button"
                   onClick={onCancel}
-                  className="w-full mt-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="hidden md:block w-full mt-4 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
