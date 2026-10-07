@@ -18,7 +18,10 @@ export function useSettings(isAuthenticated: boolean = true) {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_SETTINGS, ...parsed };
+        }
       }
     } catch (e) {
       console.error('Error reading settings from localStorage:', e);
@@ -32,20 +35,20 @@ export function useSettings(isAuthenticated: boolean = true) {
       const response = await fetch('/api/settings');
       if (response.ok) {
         const data = await response.json();
-        if (data && typeof data === 'object') {
+        if (data && typeof data === 'object' && (data.name || data.phone || data.email || data.address || data.logo)) {
           const merged = { ...DEFAULT_SETTINGS, ...data };
           setSettings(merged);
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         }
       }
     } catch (error) {
-      // Backend not running (e.g. GitHub Pages static host), harmless
+      // Harmless on static hosting like GitHub Pages
     }
   }, []);
 
-  const updateSettings = async (newSettings: CompanySettings) => {
+  const updateSettings = async (newSettings: CompanySettings): Promise<boolean> => {
     const cleanSettings: CompanySettings = {
-      name: (newSettings.name || '').trim(),
+      name: (newSettings.name || '').trim() || DEFAULT_SETTINGS.name,
       address: (newSettings.address || '').trim(),
       phone: (newSettings.phone || '').trim(),
       logo: newSettings.logo || '',
@@ -63,22 +66,30 @@ export function useSettings(isAuthenticated: boolean = true) {
       console.error('Error saving settings to localStorage:', e);
     }
 
+    let firestoreOk = false;
+    let localApiOk = false;
+
+    // 3. Local SQLite API (if server is active)
     try {
-      // 3. Local SQLite API (if server is active)
-      fetch('/api/settings', {
+      const apiRes = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleanSettings)
-      }).catch(() => {});
-
-      // 4. Firestore Cloud Real-Time DB (works everywhere, including GitHub Pages)
-      await saveSettingsToFirestore(cleanSettings);
-      return true;
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      // Still return true if saved to localStorage
-      return true;
+      });
+      if (apiRes.ok) localApiOk = true;
+    } catch (e) {
+      // Static environment fallback
     }
+
+    // 4. Firestore Cloud Real-Time DB (works everywhere, including GitHub Pages)
+    try {
+      await saveSettingsToFirestore(cleanSettings);
+      firestoreOk = true;
+    } catch (error) {
+      console.error('Error saving settings to Firestore:', error);
+    }
+
+    return true;
   };
 
   useEffect(() => {
@@ -88,10 +99,12 @@ export function useSettings(isAuthenticated: boolean = true) {
     let unsubscribe = () => {};
     try {
       unsubscribe = subscribeSettings((firestoreSettings) => {
-        if (firestoreSettings && typeof firestoreSettings === 'object' && firestoreSettings.name) {
+        if (firestoreSettings && typeof firestoreSettings === 'object') {
           const merged = { ...DEFAULT_SETTINGS, ...firestoreSettings };
           setSettings(merged);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+          } catch (e) {}
         }
       });
     } catch (e) {

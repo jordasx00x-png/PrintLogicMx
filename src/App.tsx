@@ -17,6 +17,7 @@ import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
 import { useToast } from './hooks/useToast';
+import { useNotifications } from './hooks/useNotifications';
 import { Sale } from './types';
 
 export default function App() {
@@ -53,6 +54,14 @@ export default function App() {
     updateSale,
     deleteSale
   } = useStore(isAuthenticated);
+
+  // Real-time mobile & system notification listener for accepted equipment
+  useNotifications(checkIns, (acceptedCheckIn) => {
+    const brand = acceptedCheckIn.printer?.brand || '';
+    const model = acceptedCheckIn.printer?.model || '';
+    const client = acceptedCheckIn.client?.name || 'Cliente';
+    addToast(`🎉 ¡Equipo Aceptado! ${brand} ${model} de ${client}`, 'success');
+  });
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);

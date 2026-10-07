@@ -17,12 +17,14 @@ import {
   Search,
   Command,
   ArrowRight,
-  MoreHorizontal
+  MoreHorizontal,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { OfflineIndicator } from './OfflineIndicator';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,6 +39,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { permission } = useNotifications();
 
   const navItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -224,6 +227,20 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
 
           {/* Right: Quick Action Buttons & Search Icon on Mobile */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {/* Notification Status / Settings Bell Button */}
+            <button
+              onClick={() => onNavigate('settings')}
+              className="relative min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center text-slate-600 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
+              title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
+            >
+              <Bell className="w-4 h-4" />
+              {permission === 'granted' ? (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+              ) : (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
+              )}
+            </button>
+
             {/* Mobile Search Button */}
             <button
               onClick={() => setIsQuickSearchOpen(true)}
