@@ -96,15 +96,23 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || '¡Equipo Aceptado! 🎉';
-  const options = {
+  const tag = data.tag || `printfix-alert-${Date.now()}`;
+  const iconUrl = '/pwa-192x192.png';
+
+  const baseOptions = {
     body: data.body || 'Un equipo ha sido marcado como ACEPTADO en el taller.',
-    icon: data.icon || '/pwa-192x192.png',
-    badge: data.badge || '/pwa-192x192.png',
-    vibrate: [300, 100, 300, 100, 400],
-    tag: data.tag || `printfix-alert-${Date.now()}`,
+    icon: iconUrl,
+    badge: iconUrl,
+    tag: tag,
     data: data.data || { url: '/' },
     renotify: true,
-    requireInteraction: true,
+    requireInteraction: true
+  };
+
+  // Try with vibration and actions first; fallback to basic options if unsupported (e.g. iOS WebKit)
+  const fullOptions = {
+    ...baseOptions,
+    vibrate: [300, 100, 300, 100, 400],
     actions: [
       { action: 'open', title: '👁️ Ver Equipo' },
       { action: 'close', title: 'Cerrar' }
@@ -112,7 +120,11 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.showNotification(title, fullOptions)
+      .catch((err) => {
+        console.warn('Full notification failed, retrying with basic options:', err);
+        return self.registration.showNotification(title, baseOptions);
+      })
   );
 });
 

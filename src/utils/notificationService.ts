@@ -16,23 +16,27 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   sound: true,
   vibrate: true,
   notifyOnAccepted: true,
-  notifyOnNewCheckin: false
+  notifyOnNewCheckin: true,
 };
 
+/**
+ * Loads notification settings from localStorage
+ */
 export function getNotificationSettings(): NotificationSettings {
   if (typeof window === 'undefined') return DEFAULT_NOTIFICATION_SETTINGS;
   try {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    if (saved) {
-      return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(saved) };
-    }
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_NOTIFICATION_SETTINGS;
+    return { ...DEFAULT_NOTIFICATION_SETTINGS, ...JSON.parse(raw) };
   } catch (e) {
-    console.error('Error reading notification settings:', e);
+    return DEFAULT_NOTIFICATION_SETTINGS;
   }
-  return DEFAULT_NOTIFICATION_SETTINGS;
 }
 
-export function saveNotificationSettings(settings: NotificationSettings) {
+/**
+ * Saves notification settings to localStorage
+ */
+export function saveNotificationSettings(settings: NotificationSettings): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -49,6 +53,25 @@ export function isNotificationSupported(): boolean {
 }
 
 /**
+ * Checks if running on iOS (iPhone / iPad)
+ */
+export function isIOSDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * Checks if running as a Standalone PWA (installed to home screen)
+ */
+export function isStandalonePWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true ||
+    document.referrer.includes('android-app://');
+}
+
+/**
  * Gets current notification permission status ('granted' | 'denied' | 'default' | 'unsupported')
  */
 export function getNotificationPermission(): NotificationPermission | 'unsupported' {
@@ -56,7 +79,7 @@ export function getNotificationPermission(): NotificationPermission | 'unsupport
   return Notification.permission;
 }
 
-function urlBase64ToUint8Array(base64String: string) {
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
@@ -68,9 +91,9 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 /**
- * Helper to ensure a Service Worker registration is available
+ * Helper to ensure an active Service Worker registration is available
  */
-async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+export async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
   }
@@ -79,47 +102,75 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration |
     if (!reg) {
       reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     }
-    // Wait for the service worker to become ready/active
-    await navigator.serviceWorker.ready;
-    return reg;
+    // Await ready ensures the registration is activated and controlling clients
+    const activeReg = await navigator.serviceWorker.ready;
+    return activeReg || reg;
   } catch (err) {
     console.warn('Could not obtain service worker registration:', err);
     return null;
   }
 }
 
+export interface PushRegistrationResult {
+  success: boolean;
+  message: string;
+  deviceCount?: number;
+}
+
 /**
  * Registers device for background Web Push notifications via Service Worker
  */
-export async function registerPushSubscription(): Promise<boolean> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return false;
+export async function registerPushSubscription(): Promise<PushRegistrationResult> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return { success: false, message: 'Tu navegador no soporta Service Workers' };
+  }
+
+  if (!('PushManager' in window)) {
+    if (isIOSDevice() && !isStandalonePWA()) {
+      return { 
+        success: false, 
+        message: 'En iPhone (iOS) debes agregar la app a la Pantalla de Inicio (Compartir > Añadir a pantalla de inicio) para activar notificaciones' 
+      };
+    }
+    return { success: false, message: 'Tu navegador no soporta PushManager' };
   }
 
   try {
     const registration = await getOrRegisterServiceWorker();
-    if (!registration || !registration.pushManager) return false;
+    if (!registration) {
+      return { success: false, message: 'No se pudo iniciar el Service Worker en el dispositivo' };
+    }
+
+    if (!registration.pushManager) {
+      return { success: false, message: 'PushManager no está disponible en este navegador' };
+    }
 
     // 1. Fetch public VAPID key from backend
     const keyRes = await fetch('/api/notifications/vapid-public-key');
-    if (!keyRes.ok) return false;
+    if (!keyRes.ok) {
+      return { success: false, message: 'Error de conexión con el servidor para obtener la clave de notificaciones' };
+    }
     const { publicKey } = await keyRes.json();
-    if (!publicKey) return false;
+    if (!publicKey) {
+      return { success: false, message: 'Clave pública VAPID no disponible' };
+    }
 
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
-    // 2. Check if a subscription exists, and refresh it to match current server keys
+    // 2. Obtain existing or new subscription
     let subscription = await registration.pushManager.getSubscription();
-    if (subscription) {
+    
+    if (!subscription) {
       try {
-        await subscription.unsubscribe();
-      } catch (e) {}
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      } catch (subErr: any) {
+        console.error('Subscription creation failed:', subErr);
+        return { success: false, message: `Error al suscribir el dispositivo: ${subErr.message || 'Permiso denegado'}` };
+      }
     }
-
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey
-    });
 
     const subJson = subscription.toJSON();
 
@@ -130,18 +181,24 @@ export async function registerPushSubscription(): Promise<boolean> {
       body: JSON.stringify(subJson)
     });
 
+    const data = await res.json().catch(() => ({}));
+
     // 4. Also backup subscription in Firestore
     await savePushSubscriptionToFirestore(subJson);
 
     if (res.ok) {
       localStorage.setItem('printfix_push_registered', 'true');
-      console.log('✅ Device successfully registered for locked/closed background push notifications');
-      return true;
+      console.log('✅ Device successfully registered for Web Push. Active devices:', data.count);
+      return { 
+        success: true, 
+        message: 'Celular registrado correctamente para recibir avisos con pantalla bloqueada',
+        deviceCount: data.count 
+      };
     }
-    return false;
-  } catch (err) {
-    console.warn('Could not register Web Push subscription:', err);
-    return false;
+    return { success: false, message: data.error || 'Error al guardar la suscripción en el servidor' };
+  } catch (err: any) {
+    console.error('Could not register Web Push subscription:', err);
+    return { success: false, message: `Error: ${err.message || 'Fallo desconocido al registrar'}` };
   }
 }
 
@@ -213,13 +270,13 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
     return false;
   }
 
-  const iconUrl = options.icon || '/pwa-192x192.png';
-  const badgeUrl = options.badge || '/pwa-192x192.png';
+  const iconUrl = '/pwa-192x192.png';
+  const badgeUrl = '/pwa-192x192.png';
 
   try {
     // 1. Try via Service Worker if available (best for mobile PWA)
     if ('serviceWorker' in navigator) {
-      const registration = await navigator.serviceWorker.getRegistration();
+      const registration = await getOrRegisterServiceWorker();
       if (registration && 'showNotification' in registration) {
         await registration.showNotification(options.title, {
           body: options.body,
@@ -261,16 +318,43 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
  * Triggers a scheduled server push test with a delay (in seconds)
  * allowing the user to lock their phone and verify the notification arrives on the lock screen.
  */
-export async function scheduleTestPushForLockScreen(seconds: number = 5): Promise<boolean> {
+export async function scheduleTestPushForLockScreen(seconds: number = 10): Promise<{ success: boolean; message?: string }> {
   try {
+    // First make sure we are registered
+    const regResult = await registerPushSubscription();
+    if (!regResult.success) {
+      console.warn('Push registration warning before scheduling test:', regResult.message);
+    }
+
     const res = await fetch('/api/notifications/test-scheduled', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ delaySeconds: seconds })
     });
-    return res.ok;
-  } catch (err) {
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return { success: true, message: `Notificación programada para dentro de ${seconds} segundos` };
+    }
+    return { success: false, message: data.error || 'Error al programar prueba en el servidor' };
+  } catch (err: any) {
     console.error('Error scheduling lock screen push test:', err);
-    return false;
+    return { success: false, message: err.message || 'Error de conexión' };
+  }
+}
+
+/**
+ * Fetches count of active subscribed devices
+ */
+export async function getRegisteredDevicesCount(): Promise<number> {
+  try {
+    const res = await fetch('/api/notifications/count');
+    if (res.ok) {
+      const data = await res.json();
+      return Number(data.count) || 0;
+    }
+    return 0;
+  } catch (e) {
+    return 0;
   }
 }

@@ -185,97 +185,102 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
       </motion.aside>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-hidden">
         {/* Modern Top Header Bar - Solid, Crisp, Notch-Aware */}
-        <header className="bg-white border-b border-slate-200 px-3 md:px-8 pt-[env(safe-area-inset-top,0px)] min-h-[56px] flex items-center justify-between gap-2 shadow-xs shrink-0 z-30 print:hidden select-none">
-          {/* Left: Brand mark on mobile & Breadcrumbs */}
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-700 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
-              title="Menú"
-            >
-              <Menu className="w-5 h-5 text-slate-800" />
-            </button>
+        <header className="bg-white border-b border-slate-200 shadow-xs shrink-0 z-30 print:hidden select-none">
+          {/* Safe Area Notch Spacer for iPhone / Android PWA */}
+          <div className="h-[env(safe-area-inset-top,0px)] bg-white w-full shrink-0" />
+          
+          <div className="h-14 px-3 md:px-8 flex items-center justify-between gap-2">
+            {/* Left: Brand mark on mobile & Breadcrumbs */}
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-800 hover:text-slate-950 active:scale-95 rounded-xl cursor-pointer"
+                title="Menú"
+              >
+                <Menu className="w-5 h-5 text-slate-900 stroke-[2.5]" />
+              </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate">
-              <span className="hidden sm:inline hover:text-slate-900 cursor-pointer font-medium" onClick={() => onNavigate('dashboard')}>
-                Taller
-              </span>
-              <span className="hidden sm:inline text-slate-300">/</span>
-              <span className="font-bold text-slate-950 text-sm sm:text-xs truncate">
-                {currentViewTitle}
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Quick Search Trigger Button (Desktop & Tablet) */}
-          <div className="hidden sm:flex items-center flex-1 max-w-sm mx-2">
-            <button
-              onClick={() => setIsQuickSearchOpen(true)}
-              className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-400 border border-slate-200/80 rounded-xl text-xs transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <Search className="w-3.5 h-3.5 text-slate-400" />
-                <span>Navegación rápida...</span>
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate">
+                <span className="hidden sm:inline hover:text-slate-900 cursor-pointer font-semibold" onClick={() => onNavigate('dashboard')}>
+                  Taller
+                </span>
+                <span className="hidden sm:inline text-slate-300">/</span>
+                <span className="font-extrabold text-slate-950 text-sm sm:text-xs truncate">
+                  {currentViewTitle}
+                </span>
               </div>
-              <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-500">
-                <Command className="w-2.5 h-2.5" /> K
-              </kbd>
-            </button>
-          </div>
+            </div>
 
-          {/* Right: Quick Action Buttons & Search Icon on Mobile */}
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Notification Status / Settings Bell Button */}
-            <button
-              onClick={async () => {
-                if (permission !== 'granted') {
-                  const res = await requestPermission();
-                  if (res === 'granted') return;
-                }
-                onNavigate('settings');
-              }}
-              className="relative min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-700 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
-              title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
-            >
-              <Bell className="w-4 h-4 text-slate-800" />
-              {permission === 'granted' ? (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
-              ) : (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
+            {/* Center: Quick Search Trigger Button (Desktop & Tablet) */}
+            <div className="hidden sm:flex items-center flex-1 max-w-sm mx-2">
+              <button
+                onClick={() => setIsQuickSearchOpen(true)}
+                className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-400 border border-slate-200/80 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Navegación rápida...</span>
+                </div>
+                <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono text-slate-500">
+                  <Command className="w-2.5 h-2.5" /> K
+                </kbd>
+              </button>
+            </div>
+
+            {/* Right: Quick Action Buttons & Search Icon on Mobile */}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Notification Status / Settings Bell Button */}
+              <button
+                onClick={async () => {
+                  if (permission !== 'granted') {
+                    const res = await requestPermission();
+                    if (res === 'granted') return;
+                  }
+                  onNavigate('settings');
+                }}
+                className="relative min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-800 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
+                title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
+              >
+                <Bell className="w-4 h-4 text-slate-900 stroke-[2.2]" />
+                {permission === 'granted' ? (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+                ) : (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
+                )}
+              </button>
+
+              {/* Mobile Search Button */}
+              <button
+                onClick={() => setIsQuickSearchOpen(true)}
+                className="sm:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-800 hover:text-slate-950 active:scale-95 rounded-xl cursor-pointer"
+                title="Buscar"
+              >
+                <Search className="w-4 h-4 text-slate-900 stroke-[2.2]" />
+              </button>
+
+              {currentView !== 'new' && (
+                <button
+                  onClick={() => onNavigate('new')}
+                  className="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span className="hidden sm:inline">Nuevo Ingreso</span>
+                  <span className="sm:hidden font-bold">Nuevo</span>
+                </button>
               )}
-            </button>
 
-            {/* Mobile Search Button */}
-            <button
-              onClick={() => setIsQuickSearchOpen(true)}
-              className="sm:hidden min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-700 hover:text-slate-950 active:scale-95 rounded-xl cursor-pointer"
-              title="Buscar"
-            >
-              <Search className="w-4 h-4 text-slate-800" />
-            </button>
-
-            {currentView !== 'new' && (
-              <button
-                onClick={() => onNavigate('new')}
-                className="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Nuevo Ingreso</span>
-                <span className="sm:hidden font-bold">Nuevo</span>
-              </button>
-            )}
-
-            {currentView !== 'sales' && (
-              <button
-                onClick={() => onNavigate('sales')}
-                className="hidden md:inline-flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-              >
-                <ShoppingCart className="w-3.5 h-3.5 text-slate-500" />
-                <span>Ventas</span>
-              </button>
-            )}
+              {currentView !== 'sales' && (
+                <button
+                  onClick={() => onNavigate('sales')}
+                  className="hidden md:inline-flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Ventas</span>
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -300,7 +305,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
         {/* Mobile Fixed Bottom Navigation Bar (Thumb Zone) */}
         <nav 
           aria-label="Navegación móvil"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 grid grid-cols-5 items-center px-1 h-16 pb-[env(safe-area-inset-bottom)] shadow-lg shadow-slate-900/10"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 grid grid-cols-5 items-center px-1 min-h-[60px] pb-[max(env(safe-area-inset-bottom,0px),8px)] pt-1 shadow-lg shadow-slate-900/10 select-none"
         >
           {mobileBottomTabs.map((tab) => {
             const isActive = currentView === tab.id;

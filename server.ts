@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import { createServer as createViteServer } from 'vite';
 import Database from 'better-sqlite3';
 import path from 'path';
@@ -79,22 +80,35 @@ webpush.setVapidDetails(
 async function broadcastPushNotification(payload: { title: string; body: string; data?: any; tag?: string }) {
   try {
     const subscriptions = db.prepare('SELECT * FROM push_subscriptions').all() as any[];
-    console.log(`Broadcasting push notification to ${subscriptions.length} registered devices`);
+    console.log(`Broadcasting push notification to ${subscriptions.length} registered devices:`, payload.title);
     
+    if (subscriptions.length === 0) {
+      console.log('No registered push devices in database yet.');
+      return;
+    }
+
     const payloadStr = JSON.stringify(payload);
     await Promise.allSettled(
       subscriptions.map(async (sub) => {
         try {
           const pushSubscription = {
             endpoint: sub.endpoint,
-            keys: JSON.parse(sub.keys)
+            keys: typeof sub.keys === 'string' ? JSON.parse(sub.keys) : sub.keys
           };
-          await webpush.sendNotification(pushSubscription, payloadStr);
+          
+          // High urgency and 24h TTL ensures FCM and APNs wake up locked/dozing mobile devices immediately
+          await webpush.sendNotification(pushSubscription, payloadStr, {
+            TTL: 86400,
+            urgency: 'high',
+            topic: 'printfix-alert'
+          });
+          console.log('✅ Push delivered to endpoint:', sub.endpoint?.substring(0, 35));
         } catch (err: any) {
-          console.error('Push delivery error for endpoint:', sub.endpoint?.substring(0, 30), err.message, err.statusCode);
+          console.error('Push delivery error for endpoint:', sub.endpoint?.substring(0, 35), err.message, err.statusCode);
           if (err.statusCode === 404 || err.statusCode === 410) {
             // Subscription has expired or user unsubscribed
             db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);
+            console.log('Cleaned up expired subscription endpoint:', sub.endpoint?.substring(0, 35));
           }
         }
       })
@@ -556,6 +570,15 @@ async function startServer() {
     res.json({ publicKey: vapidKeys.public_key });
   });
 
+  app.get('/api/notifications/count', (req, res) => {
+    try {
+      const row = db.prepare('SELECT count(*) as count FROM push_subscriptions').get() as { count: number };
+      res.json({ count: row.count || 0 });
+    } catch (e) {
+      res.json({ count: 0 });
+    }
+  });
+
   app.post('/api/notifications/subscribe', (req, res) => {
     try {
       const { endpoint, keys } = req.body;
@@ -566,11 +589,12 @@ async function startServer() {
       db.prepare(`
         INSERT INTO push_subscriptions (id, endpoint, keys, created_at)
         VALUES (?, ?, ?, ?)
-        ON CONFLICT(endpoint) DO UPDATE SET keys = excluded.keys
+        ON CONFLICT(endpoint) DO UPDATE SET keys = excluded.keys, created_at = excluded.created_at
       `).run(id, endpoint, JSON.stringify(keys), new Date().toISOString());
       
-      console.log('Push subscription registered for device');
-      res.json({ success: true });
+      const total = db.prepare('SELECT count(*) as count FROM push_subscriptions').get() as { count: number };
+      console.log(`Push subscription registered! Total active devices: ${total.count}`);
+      res.json({ success: true, count: total.count });
     } catch (error) {
       console.error('Error saving push subscription:', error);
       res.status(500).json({ error: 'Error saving subscription' });
@@ -590,8 +614,11 @@ async function startServer() {
 
   app.post('/api/notifications/test-scheduled', (req, res) => {
     try {
-      const delaySeconds = Math.max(1, Math.min(60, Number(req.body.delaySeconds) || 5));
-      console.log(`Scheduling test push notification in ${delaySeconds} seconds for locked mobile test`);
+      const delaySeconds = Math.max(1, Math.min(60, Number(req.body.delaySeconds) || 10));
+      const row = db.prepare('SELECT count(*) as count FROM push_subscriptions').get() as { count: number };
+      const count = row.count || 0;
+      
+      console.log(`Scheduling test push notification in ${delaySeconds} seconds for ${count} devices`);
       
       setTimeout(async () => {
         await broadcastPushNotification({
@@ -602,17 +629,22 @@ async function startServer() {
         });
       }, delaySeconds * 1000);
 
-      res.json({ success: true, delaySeconds });
+      res.json({ success: true, delaySeconds, registeredDevices: count });
     } catch (error) {
       console.error('Error scheduling test notification:', error);
       res.status(500).json({ error: 'Error scheduling test' });
     }
   });
 
+  const httpServer = http.createServer(app);
+
   // Vite middleware
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: { server: httpServer }
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
@@ -627,7 +659,7 @@ async function startServer() {
     }
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }

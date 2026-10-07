@@ -23,7 +23,13 @@ import { useSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
-import { scheduleTestPushForLockScreen, registerPushSubscription } from '../utils/notificationService';
+import { 
+  scheduleTestPushForLockScreen, 
+  registerPushSubscription,
+  getRegisteredDevicesCount,
+  isIOSDevice,
+  isStandalonePWA
+} from '../utils/notificationService';
 
 export function CompanySettings() {
   const { settings, updateSettings, loading } = useSettings();
@@ -43,7 +49,12 @@ export function CompanySettings() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isTestingNotif, setIsTestingNotif] = useState(false);
   const [lockTestCountdown, setLockTestCountdown] = useState<number | null>(null);
+  const [activeDevices, setActiveDevices] = useState<number>(0);
   const isDirtyRef = useRef(false);
+
+  useEffect(() => {
+    getRegisteredDevicesCount().then(setActiveDevices);
+  }, [permission]);
 
   useEffect(() => {
     // Only update from background sync if the user is not actively editing
@@ -117,9 +128,17 @@ export function CompanySettings() {
     try {
       const res = await requestPermission();
       if (res === 'granted') {
-        addToast('¡Notificaciones activadas con éxito en este dispositivo!', 'success');
+        const subResult = await registerPushSubscription();
+        if (subResult.deviceCount !== undefined) {
+          setActiveDevices(subResult.deviceCount);
+        }
+        if (subResult.success) {
+          addToast('¡Notificaciones activadas y celular registrado con éxito!', 'success');
+        } else {
+          addToast(subResult.message, 'info');
+        }
       } else if (res === 'denied') {
-        addToast('Las notificaciones están bloqueadas en los ajustes de tu navegador.', 'error');
+        addToast('Las notificaciones están bloqueadas en los ajustes del navegador de tu celular.', 'error');
       }
     } catch (e) {
       addToast('Error al solicitar permisos de notificación', 'error');
@@ -147,28 +166,40 @@ export function CompanySettings() {
   };
 
   const handleTestLockScreenPush = async () => {
+    // 1. Permission check
     if (permission !== 'granted') {
       const res = await requestPermission();
       if (res !== 'granted') {
-        addToast('Primero debes permitir las notificaciones en tu celular', 'error');
+        addToast('Debes pulsar "Permitir" cuando el celular te pregunte por notificaciones.', 'error');
         return;
       }
     }
 
-    // Always ensure fresh registration token on server before testing
-    await registerPushSubscription();
+    // 2. iOS Safari check
+    if (isIOSDevice() && !isStandalonePWA()) {
+      addToast('En iPhone: Pulsa el botón Compartir (cuadrado con flecha) > "Añadir a pantalla de inicio" para recibir avisos con pantalla bloqueada.', 'info');
+    }
 
-    setLockTestCountdown(5);
-    addToast('📱 Prueba iniciada: ¡Bloquea la pantalla de tu celular ahora!', 'info');
+    // 3. Register device with backend
+    setIsTestingNotif(true);
+    const subResult = await registerPushSubscription();
+    if (subResult.deviceCount !== undefined) {
+      setActiveDevices(subResult.deviceCount);
+    }
 
-    const ok = await scheduleTestPushForLockScreen(5);
-    if (!ok) {
-      addToast('Error al programar la notificación de prueba', 'error');
-      setLockTestCountdown(null);
+    // 4. Schedule server push in 10 seconds
+    const scheduleResult = await scheduleTestPushForLockScreen(10);
+    setIsTestingNotif(false);
+
+    if (!scheduleResult.success) {
+      addToast(`Error al programar prueba: ${scheduleResult.message || 'Intenta nuevamente'}`, 'error');
       return;
     }
 
-    let remaining = 5;
+    setLockTestCountdown(10);
+    addToast('📱 ¡Prueba iniciada! Bloquea la pantalla de tu celular ahora.', 'success');
+
+    let remaining = 10;
     const interval = setInterval(() => {
       remaining -= 1;
       if (remaining <= 0) {
@@ -232,7 +263,13 @@ export function CompanySettings() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeDevices > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-200">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  {activeDevices} celular{activeDevices !== 1 ? 'es' : ''} registrado{activeDevices !== 1 ? 's' : ''}
+                </span>
+              )}
               {permission === 'granted' ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200">
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -265,7 +302,7 @@ export function CompanySettings() {
                   Aviso instantáneo de Equipos Aceptados
                 </p>
                 <p className="text-xs text-slate-500">
-                  Cuando un equipo cambie a estado <strong>"Aceptado"</strong> (desde este celular o cualquier otra computadora del taller), sonará un timbre y se enviará la notificación al instante.
+                  Cuando un equipo cambie a estado <strong>"Aceptado"</strong> (desde este celular o cualquier otra computadora del taller), sonará un timbre y se enviará la notificación Push en segundo plano a tu celular.
                 </p>
               </div>
 
@@ -287,21 +324,33 @@ export function CompanySettings() {
                   className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
                 >
                   <Lock className="w-4 h-4 text-emerald-400" />
-                  {lockTestCountdown !== null ? `⏱️ Bloquea móvil (${lockTestCountdown}s)...` : '📱 Probar con Móvil Bloqueado'}
+                  {lockTestCountdown !== null ? `⏱️ Bloquea móvil (${lockTestCountdown}s)...` : '📱 Probar con Móvil Bloqueado (10s)'}
                 </button>
               </div>
             </div>
 
             {/* Countdown Alert for Lock Screen Test */}
             {lockTestCountdown !== null && (
-              <div className="p-3.5 bg-emerald-500 text-white rounded-xl flex items-center gap-3 animate-pulse shadow-sm">
-                <Timer className="w-5 h-5 shrink-0 animate-spin" />
-                <div className="text-xs">
-                  <span className="font-black block">¡Bloquea la pantalla de tu celular ahora!</span>
-                  <span>En {lockTestCountdown} segundo{lockTestCountdown !== 1 ? 's' : ''} se enviará la notificación Push en segundo plano a tu pantalla bloqueada.</span>
+              <div className="p-4 bg-emerald-600 text-white rounded-2xl flex items-center gap-3 shadow-md animate-pulse">
+                <Timer className="w-6 h-6 shrink-0" />
+                <div className="text-xs space-y-0.5">
+                  <span className="font-extrabold text-sm block">¡Bloquea la pantalla de tu celular ahora!</span>
+                  <span>En <strong className="text-amber-200 text-sm">{lockTestCountdown} segundos</strong> se enviará la notificación Web Push a tu pantalla bloqueada.</span>
                 </div>
               </div>
             )}
+
+            {/* Mobile OS Instructions Info Box */}
+            <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100/80 text-indigo-950 text-xs space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-indigo-900">
+                <Smartphone className="w-4 h-4 text-indigo-600" />
+                Instrucciones según tu teléfono:
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-slate-700 text-[11px] leading-relaxed">
+                <li><strong>Android (Chrome / PWA):</strong> Pulsa "Activar en este Celular" y acepta el permiso. La notificación encenderá tu pantalla con sonido y vibración.</li>
+                <li><strong>iPhone / iPad (iOS):</strong> Apple exige agregar la app a la pantalla de inicio (botón <strong>Compartir ⎋</strong> en Safari &gt; <strong>"Añadir a pantalla de inicio"</strong>) y abrirla desde el icono para recibir avisos bloqueado.</li>
+              </ul>
+            </div>
 
             {/* Notification Preferences Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-slate-200/60">

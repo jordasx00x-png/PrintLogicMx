@@ -6,20 +6,38 @@
       (function() {
         const suppress = (msg) => {
           if (!msg || typeof msg !== 'string') return false;
-          return msg.includes('WebSocket') || msg.includes('vite') || msg.includes('HMR') || msg.includes('hmr');
+          return msg.includes('WebSocket') || msg.includes('vite') || msg.includes('HMR') || msg.includes('hmr') || msg.includes('closed without opened');
+        };
+        const extract = (arg) => {
+          if (!arg) return '';
+          if (typeof arg === 'string') return arg;
+          if (arg instanceof Error) return (arg.message || '') + ' ' + (arg.stack || '');
+          try {
+            return (arg.message || '') + ' ' + (arg.stack || '') + ' ' + String(arg);
+          } catch(e) {
+            return String(arg);
+          }
         };
         const orgError = console.error;
         console.error = function(...args) {
-          if (args.some(arg => suppress(String(orgError && arg && arg.stack || arg)))) return;
+          if (args.some(arg => suppress(extract(arg)))) return;
           orgError.apply(console, args);
         };
         const orgWarn = console.warn;
         console.warn = function(...args) {
-          if (args.some(arg => suppress(String(arg)))) return;
+          if (args.some(arg => suppress(extract(arg)))) return;
           orgWarn.apply(console, args);
         };
+        window.addEventListener('error', function(e) {
+          const msg = extract(e.error) || extract(e.message);
+          if (suppress(msg)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
         window.addEventListener('unhandledrejection', function(e) {
-          if (e.reason && suppress(String(e.reason.message || e.reason))) {
+          const msg = extract(e.reason);
+          if (suppress(msg)) {
             e.preventDefault();
             e.stopPropagation();
           }
