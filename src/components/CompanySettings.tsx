@@ -23,7 +23,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
-import { scheduleTestPushForLockScreen } from '../utils/notificationService';
+import { scheduleTestPushForLockScreen, registerPushSubscription } from '../utils/notificationService';
 
 export function CompanySettings() {
   const { settings, updateSettings, loading } = useSettings();
@@ -154,6 +154,9 @@ export function CompanySettings() {
         return;
       }
     }
+
+    // Always ensure fresh registration token on server before testing
+    await registerPushSubscription();
 
     setLockTestCountdown(5);
     addToast('📱 Prueba iniciada: ¡Bloquea la pantalla de tu celular ahora!', 'info');

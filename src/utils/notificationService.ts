@@ -1,4 +1,5 @@
 import { playNotificationSound, vibrateDevice } from './soundUtil';
+import { savePushSubscriptionToFirestore } from '../lib/firestoreService';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -107,21 +108,30 @@ export async function registerPushSubscription(): Promise<boolean> {
 
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
-    // 2. Subscribe to Push Manager
+    // 2. Check if a subscription exists, and refresh it to match current server keys
     let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey
-      });
+    if (subscription) {
+      try {
+        await subscription.unsubscribe();
+      } catch (e) {}
     }
 
-    // 3. Send subscription to backend
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey
+    });
+
+    const subJson = subscription.toJSON();
+
+    // 3. Send subscription to SQLite backend
     const res = await fetch('/api/notifications/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription.toJSON())
+      body: JSON.stringify(subJson)
     });
+
+    // 4. Also backup subscription in Firestore
+    await savePushSubscriptionToFirestore(subJson);
 
     if (res.ok) {
       localStorage.setItem('printfix_push_registered', 'true');

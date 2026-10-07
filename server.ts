@@ -91,6 +91,7 @@ async function broadcastPushNotification(payload: { title: string; body: string;
           };
           await webpush.sendNotification(pushSubscription, payloadStr);
         } catch (err: any) {
+          console.error('Push delivery error for endpoint:', sub.endpoint?.substring(0, 30), err.message, err.statusCode);
           if (err.statusCode === 404 || err.statusCode === 410) {
             // Subscription has expired or user unsubscribed
             db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);

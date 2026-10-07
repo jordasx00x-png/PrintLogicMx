@@ -46,7 +46,7 @@ export function QuoteSheet({ checkIn, onClose }: QuoteSheetProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 print:static print:p-0 print:bg-white overflow-y-auto print:overflow-visible print:block">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4 sm:p-6 print:static print:p-0 print:bg-white overflow-y-auto print:overflow-visible print:block">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

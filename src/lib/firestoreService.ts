@@ -204,6 +204,26 @@ export async function saveSettingsToFirestore(settings: CompanySettings) {
   }
 }
 
+// Push Subscriptions Sync
+const pushCol = collection(db, 'push_subscriptions');
+
+export async function savePushSubscriptionToFirestore(sub: any) {
+  const path = 'push_subscriptions';
+  try {
+    const rawEndpoint = sub.endpoint || '';
+    // Create a safe document ID from endpoint hash
+    const safeDocId = btoa(rawEndpoint).replace(/[/+=]/g, '').substring(0, 60) || `sub_${Date.now()}`;
+    const cleanData = JSON.parse(JSON.stringify({
+      endpoint: sub.endpoint,
+      keys: sub.keys,
+      updatedAt: new Date().toISOString()
+    }));
+    await setDoc(doc(db, 'push_subscriptions', safeDocId), cleanData);
+  } catch (error) {
+    console.warn('Could not save push subscription to Firestore (continuing with SQLite):', error);
+  }
+}
+
 // Migration / Seeding Helper: Syncs initial server data to Firestore if Firestore is empty
 export async function seedServerDataToFirestore() {
   try {

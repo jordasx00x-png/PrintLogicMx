@@ -28,7 +28,12 @@ export function useNotifications(
     const currentPerm = getNotificationPermission();
     setPermission(currentPerm);
     if (currentPerm === 'granted') {
+      // Immediate attempt and fallback after Service Worker activation
       registerPushSubscription().catch(() => {});
+      const timer = setTimeout(() => {
+        registerPushSubscription().catch(() => {});
+      }, 2000);
+      return () => clearTimeout(timer);
     }
   }, []);
 

@@ -39,7 +39,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { permission } = useNotifications();
+  const { permission, requestPermission } = useNotifications();
 
   const navItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -229,7 +229,13 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
           <div className="flex items-center gap-1 shrink-0">
             {/* Notification Status / Settings Bell Button */}
             <button
-              onClick={() => onNavigate('settings')}
+              onClick={async () => {
+                if (permission !== 'granted') {
+                  const res = await requestPermission();
+                  if (res === 'granted') return;
+                }
+                onNavigate('settings');
+              }}
               className="relative min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-700 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
               title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
             >
@@ -294,7 +300,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
         {/* Mobile Fixed Bottom Navigation Bar (Thumb Zone) */}
         <nav 
           aria-label="Navegación móvil"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 grid grid-cols-5 items-center px-1 h-16 pb-[env(safe-area-inset-bottom)] shadow-lg shadow-slate-900/10"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 grid grid-cols-5 items-center px-1 h-16 pb-[env(safe-area-inset-bottom)] shadow-lg shadow-slate-900/10"
         >
           {mobileBottomTabs.map((tab) => {
             const isActive = currentView === tab.id;
@@ -341,7 +347,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsQuickSearchOpen(false)}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/60"
             />
 
             <motion.div
@@ -404,7 +410,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/70"
             />
 
             <motion.div 

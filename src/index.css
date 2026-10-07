@@ -26,13 +26,11 @@
     overflow-x: hidden;
   }
 
-  /* Force GPU transform stabilization and remove blur artifacts */
-  header, nav, aside {
+  /* Clean vector rendering without GPU raster blur */
+  header, nav, aside, main {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transform: translateZ(0);
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
+    text-rendering: optimizeLegibility;
   }
 
   /* Prevent automatic iOS/Android zoom on input focus */

@@ -630,7 +630,7 @@ export function ProductCatalog({
       {/* Delete Single Product Confirmation Modal */}
       <AnimatePresence>
         {deletingProduct && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -673,7 +673,7 @@ export function ProductCatalog({
       {/* Clear All Products Confirmation Modal */}
       <AnimatePresence>
         {showClearAllModal && onDeleteAllProducts && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/70 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

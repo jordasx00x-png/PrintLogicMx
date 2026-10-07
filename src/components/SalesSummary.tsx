@@ -162,7 +162,7 @@ export function SalesSummary({ checkIns, sales, products = [] }: SalesSummaryPro
           </div>
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+              <div className="w-10 h-10 bg-white/25 rounded-xl flex items-center justify-center">
                 <DollarSign className="w-5 h-5" />
               </div>
               <p className="text-xs font-black uppercase tracking-widest text-indigo-100">Facturación Bruta (Ingresos)</p>
@@ -195,7 +195,7 @@ export function SalesSummary({ checkIns, sales, products = [] }: SalesSummaryPro
           </div>
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+              <div className="w-10 h-10 bg-white/25 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-5 h-5" />
               </div>
               <p className="text-xs font-black uppercase tracking-widest text-emerald-100">Ganancia Real Neta (Utilidad)</p>

@@ -741,7 +741,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
       </div>
 
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-6 text-center">
             <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto text-red-600">
               <Trash2 className="w-8 h-8" />
@@ -1353,7 +1353,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
       {/* Delete Quote Confirmation Modal */}
       {showDeleteQuoteModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-5 text-center animate-in fade-in zoom-in-95 duration-150">
             <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto text-red-600">
               <Trash2 className="w-7 h-7" />

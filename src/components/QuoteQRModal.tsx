@@ -40,7 +40,7 @@ export function QuoteQRModal({ checkIn, onClose }: QuoteQRModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
