@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import webpush from 'web-push';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database('database.sqlite');
@@ -45,7 +46,62 @@ db.exec(`
     email TEXT,
     website TEXT
   );
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    endpoint TEXT UNIQUE,
+    keys TEXT,
+    created_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS vapid_keys (
+    id TEXT PRIMARY KEY,
+    public_key TEXT,
+    private_key TEXT
+  );
 `);
+
+// Setup persistent VAPID keys for background push notifications
+let vapidKeys = db.prepare('SELECT * FROM vapid_keys WHERE id = ?').get('default') as any;
+if (!vapidKeys) {
+  const generated = webpush.generateVAPIDKeys();
+  db.prepare('INSERT INTO vapid_keys (id, public_key, private_key) VALUES (?, ?, ?)').run(
+    'default', generated.publicKey, generated.privateKey
+  );
+  vapidKeys = { public_key: generated.publicKey, private_key: generated.privateKey };
+  console.log('Generated new persistent VAPID keys for Web Push');
+}
+
+webpush.setVapidDetails(
+  'mailto:admin@printfix.com',
+  vapidKeys.public_key,
+  vapidKeys.private_key
+);
+
+async function broadcastPushNotification(payload: { title: string; body: string; data?: any; tag?: string }) {
+  try {
+    const subscriptions = db.prepare('SELECT * FROM push_subscriptions').all() as any[];
+    console.log(`Broadcasting push notification to ${subscriptions.length} registered devices`);
+    
+    const payloadStr = JSON.stringify(payload);
+    await Promise.allSettled(
+      subscriptions.map(async (sub) => {
+        try {
+          const pushSubscription = {
+            endpoint: sub.endpoint,
+            keys: JSON.parse(sub.keys)
+          };
+          await webpush.sendNotification(pushSubscription, payloadStr);
+        } catch (err: any) {
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            // Subscription has expired or user unsubscribed
+            db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);
+          }
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Error in broadcastPushNotification:', err);
+  }
+}
 
 try {
   db.exec(`ALTER TABLE users ADD COLUMN photo_url TEXT;`);
@@ -278,6 +334,20 @@ async function startServer() {
       const checkIn = req.body;
       console.log('Updating checkin:', id);
       db.prepare('UPDATE checkins SET data = ? WHERE id = ?').run(JSON.stringify(checkIn), id);
+      
+      // If status is Aceptado, broadcast push notification to all subscribed mobile devices
+      if (checkIn.printer?.status === 'Aceptado') {
+        const brandModel = `${checkIn.printer?.brand || ''} ${checkIn.printer?.model || ''}`.trim() || 'Equipo';
+        const clientName = checkIn.client?.name || 'Cliente';
+        const idShort = checkIn.id ? `(#${checkIn.id.slice(-5)})` : '';
+        broadcastPushNotification({
+          title: '¡Equipo Aceptado! 🎉',
+          body: `El equipo ${brandModel} ${idShort} de ${clientName} ha sido marcado como ACEPTADO.`,
+          tag: `checkin-accepted-${id}`,
+          data: { checkInId: id }
+        });
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error('Error updating checkin:', error);
@@ -477,6 +547,43 @@ async function startServer() {
     } catch (error) {
       console.error('Error saving settings:', error);
       res.status(500).json({ error: 'Error saving settings' });
+    }
+  });
+
+  // Notification Push Endpoints (For Mobile Lock Screen & Background)
+  app.get('/api/notifications/vapid-public-key', (req, res) => {
+    res.json({ publicKey: vapidKeys.public_key });
+  });
+
+  app.post('/api/notifications/subscribe', (req, res) => {
+    try {
+      const { endpoint, keys } = req.body;
+      if (!endpoint || !keys) {
+        return res.status(400).json({ error: 'Missing endpoint or keys' });
+      }
+      const id = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      db.prepare(`
+        INSERT INTO push_subscriptions (id, endpoint, keys, created_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET keys = excluded.keys
+      `).run(id, endpoint, JSON.stringify(keys), new Date().toISOString());
+      
+      console.log('Push subscription registered for device');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error saving push subscription:', error);
+      res.status(500).json({ error: 'Error saving subscription' });
+    }
+  });
+
+  app.post('/api/notifications/broadcast', async (req, res) => {
+    try {
+      const { title, body, data, tag } = req.body;
+      await broadcastPushNotification({ title, body, data, tag });
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error broadcasting push notification:', error);
+      res.status(500).json({ error: 'Error sending push broadcast' });
     }
   });
 

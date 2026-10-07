@@ -7,7 +7,8 @@ import {
   getNotificationPermission,
   requestNotificationPermission,
   sendAppNotification,
-  isNotificationSupported
+  isNotificationSupported,
+  registerPushSubscription
 } from '../utils/notificationService';
 
 export function useNotifications(
@@ -24,7 +25,11 @@ export function useNotifications(
 
   useEffect(() => {
     setSupported(isNotificationSupported());
-    setPermission(getNotificationPermission());
+    const currentPerm = getNotificationPermission();
+    setPermission(currentPerm);
+    if (currentPerm === 'granted') {
+      registerPushSubscription().catch(() => {});
+    }
   }, []);
 
   const requestPermission = useCallback(async () => {

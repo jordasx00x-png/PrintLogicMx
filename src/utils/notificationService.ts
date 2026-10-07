@@ -55,13 +55,72 @@ export function getNotificationPermission(): NotificationPermission | 'unsupport
   return Notification.permission;
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 /**
- * Requests permission from the user for system notifications
+ * Registers device for background Web Push notifications via Service Worker
+ */
+export async function registerPushSubscription(): Promise<boolean> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration) return false;
+
+    // 1. Fetch public VAPID key from backend
+    const keyRes = await fetch('/api/notifications/vapid-public-key');
+    if (!keyRes.ok) return false;
+    const { publicKey } = await keyRes.json();
+    if (!publicKey) return false;
+
+    const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+    // 2. Subscribe to Push Manager
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    }
+
+    // 3. Send subscription to backend
+    await fetch('/api/notifications/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(subscription.toJSON())
+    });
+
+    console.log('Registered for Web Push notifications');
+    return true;
+  } catch (err) {
+    console.warn('Could not register Web Push subscription:', err);
+    return false;
+  }
+}
+
+/**
+ * Requests permission from the user for system notifications and registers Web Push
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
   if (!isNotificationSupported()) return 'unsupported';
   try {
     const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      // Auto-register for background push notifications
+      await registerPushSubscription();
+    }
     return permission;
   } catch (error) {
     console.error('Error requesting notification permission:', error);
@@ -79,11 +138,12 @@ export interface ShowNotificationOptions {
   onClickUrl?: string;
   playSound?: boolean;
   playVibrate?: boolean;
+  broadcastPush?: boolean;
 }
 
 /**
  * Sends a notification using Service Worker (PWA) or standard Notification API,
- * accompanied by sound and vibration
+ * and triggers Web Push broadcast to wake locked/closed phones
  */
 export async function sendAppNotification(options: ShowNotificationOptions): Promise<boolean> {
   const settings = getNotificationSettings();
@@ -97,7 +157,23 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
     vibrateDevice([200, 100, 250, 100, 200]);
   }
 
-  // System notification
+  // Also broadcast via backend Web Push so locked/closed mobile devices receive it!
+  if (options.broadcastPush !== false) {
+    try {
+      fetch('/api/notifications/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: options.title,
+          body: options.body,
+          tag: options.tag,
+          data: options.data
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  // Local System notification
   if (!isNotificationSupported() || Notification.permission !== 'granted') {
     return false;
   }

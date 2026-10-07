@@ -187,12 +187,12 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Modern Top Header Bar */}
-        <header className="sticky top-0 z-20 h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 md:px-8 flex items-center justify-between gap-3 print:hidden">
+        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-3 md:px-8 pt-[env(safe-area-inset-top,0px)] h-[calc(3.5rem+env(safe-area-inset-top,0px))] flex items-center justify-between gap-2 shadow-xs print:hidden">
           {/* Left: Brand mark on mobile & Breadcrumbs */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 transition-all cursor-pointer"
+              className="md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-700 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
               title="Menú"
             >
               <Menu className="w-5 h-5" />
@@ -203,7 +203,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
                 Taller
               </span>
               <span className="hidden sm:inline text-slate-300">/</span>
-              <span className="font-bold text-slate-900 truncate">
+              <span className="font-bold text-slate-900 text-sm sm:text-xs truncate">
                 {currentViewTitle}
               </span>
             </div>
@@ -226,25 +226,25 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
           </div>
 
           {/* Right: Quick Action Buttons & Search Icon on Mobile */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Notification Status / Settings Bell Button */}
             <button
               onClick={() => onNavigate('settings')}
-              className="relative min-h-[40px] min-w-[40px] sm:min-h-[36px] sm:min-w-[36px] flex items-center justify-center text-slate-600 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
+              className="relative min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-600 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
               title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
             >
               <Bell className="w-4 h-4" />
               {permission === 'granted' ? (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
               ) : (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
               )}
             </button>
 
             {/* Mobile Search Button */}
             <button
               onClick={() => setIsQuickSearchOpen(true)}
-              className="sm:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
+              className="sm:hidden min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
               title="Buscar"
             >
               <Search className="w-4 h-4" />
@@ -253,7 +253,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
             {currentView !== 'new' && (
               <button
                 onClick={() => onNavigate('new')}
-                className="btn-tactile bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 sm:py-1.5 rounded-xl gap-1.5 shadow-xs cursor-pointer min-h-[40px] sm:min-h-0"
+                className="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Nuevo Ingreso</span>
@@ -264,7 +264,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
             {currentView !== 'sales' && (
               <button
                 onClick={() => onNavigate('sales')}
-                className="btn-tactile hidden md:inline-flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-bold px-3 py-1.5 rounded-xl gap-1.5 cursor-pointer"
+                className="hidden md:inline-flex bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
               >
                 <ShoppingCart className="w-3.5 h-3.5 text-slate-500" />
                 <span>Ventas</span>
