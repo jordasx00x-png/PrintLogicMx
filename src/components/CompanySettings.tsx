@@ -166,49 +166,57 @@ export function CompanySettings() {
   };
 
   const handleTestLockScreenPush = async () => {
-    // 1. Permission check
-    if (permission !== 'granted') {
-      const res = await requestPermission();
-      if (res !== 'granted') {
-        addToast('Debes pulsar "Permitir" cuando el celular te pregunte por notificaciones.', 'error');
+    if (lockTestCountdown !== null) return;
+    setIsTestingNotif(true);
+
+    try {
+      // 1. Permission check
+      if (permission !== 'granted') {
+        const res = await requestPermission();
+        if (res !== 'granted') {
+          addToast('Debes pulsar "Permitir" cuando el celular te pregunte por notificaciones.', 'error');
+          return;
+        }
+      }
+
+      // 2. iOS Safari check
+      if (isIOSDevice() && !isStandalonePWA()) {
+        addToast('En iPhone: Pulsa el botón Compartir (cuadrado con flecha) > "Añadir a pantalla de inicio" para recibir avisos con pantalla bloqueada.', 'info');
+      }
+
+      // 3. Register device with backend
+      const subResult = await registerPushSubscription();
+      if (subResult.deviceCount !== undefined) {
+        setActiveDevices(subResult.deviceCount);
+      }
+
+      // 4. Schedule server push in 10 seconds
+      const scheduleResult = await scheduleTestPushForLockScreen(10);
+
+      if (!scheduleResult.success) {
+        addToast(`Error al programar prueba: ${scheduleResult.message || 'Intenta nuevamente'}`, 'error');
         return;
       }
+
+      setLockTestCountdown(10);
+      addToast('📱 ¡Prueba iniciada! Bloquea la pantalla de tu celular ahora.', 'success');
+
+      let remaining = 10;
+      const interval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          setLockTestCountdown(null);
+        } else {
+          setLockTestCountdown(remaining);
+        }
+      }, 1000);
+    } catch (err: any) {
+      console.error('Error in handleTestLockScreenPush:', err);
+      addToast(`Error: ${err.message || 'No se pudo iniciar la prueba'}`, 'error');
+    } finally {
+      setIsTestingNotif(false);
     }
-
-    // 2. iOS Safari check
-    if (isIOSDevice() && !isStandalonePWA()) {
-      addToast('En iPhone: Pulsa el botón Compartir (cuadrado con flecha) > "Añadir a pantalla de inicio" para recibir avisos con pantalla bloqueada.', 'info');
-    }
-
-    // 3. Register device with backend
-    setIsTestingNotif(true);
-    const subResult = await registerPushSubscription();
-    if (subResult.deviceCount !== undefined) {
-      setActiveDevices(subResult.deviceCount);
-    }
-
-    // 4. Schedule server push in 10 seconds
-    const scheduleResult = await scheduleTestPushForLockScreen(10);
-    setIsTestingNotif(false);
-
-    if (!scheduleResult.success) {
-      addToast(`Error al programar prueba: ${scheduleResult.message || 'Intenta nuevamente'}`, 'error');
-      return;
-    }
-
-    setLockTestCountdown(10);
-    addToast('📱 ¡Prueba iniciada! Bloquea la pantalla de tu celular ahora.', 'success');
-
-    let remaining = 10;
-    const interval = setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        clearInterval(interval);
-        setLockTestCountdown(null);
-      } else {
-        setLockTestCountdown(remaining);
-      }
-    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -321,10 +329,14 @@ export function CompanySettings() {
                   type="button"
                   onClick={handleTestLockScreenPush}
                   disabled={isTestingNotif || lockTestCountdown !== null}
-                  className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  className="px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0 touch-manipulation disabled:opacity-70"
                 >
                   <Lock className="w-4 h-4 text-emerald-400" />
-                  {lockTestCountdown !== null ? `⏱️ Bloquea móvil (${lockTestCountdown}s)...` : '📱 Probar con Móvil Bloqueado (10s)'}
+                  {isTestingNotif 
+                    ? '⏳ Conectando...' 
+                    : lockTestCountdown !== null 
+                      ? `⏱️ Bloquea móvil (${lockTestCountdown}s)...` 
+                      : '📱 Probar con Móvil Bloqueado (10s)'}
                 </button>
               </div>
             </div>

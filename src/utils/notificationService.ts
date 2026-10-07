@@ -102,8 +102,9 @@ export async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistr
     if (!reg) {
       reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     }
-    // Await ready ensures the registration is activated and controlling clients
-    const activeReg = await navigator.serviceWorker.ready;
+    // Timeout of 2.5s on ready so it NEVER hangs mobile devices if background worker is delayed
+    const readyTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+    const activeReg = await Promise.race([navigator.serviceWorker.ready, readyTimeout]);
     return activeReg || reg;
   } catch (err) {
     console.warn('Could not obtain service worker registration:', err);
@@ -170,6 +171,10 @@ export async function registerPushSubscription(): Promise<PushRegistrationResult
         console.error('Subscription creation failed:', subErr);
         return { success: false, message: `Error al suscribir el dispositivo: ${subErr.message || 'Permiso denegado'}` };
       }
+    }
+
+    if (!subscription) {
+      return { success: false, message: 'No se pudo crear la suscripción en el navegador del dispositivo' };
     }
 
     const subJson = subscription.toJSON();
@@ -320,12 +325,6 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
  */
 export async function scheduleTestPushForLockScreen(seconds: number = 10): Promise<{ success: boolean; message?: string }> {
   try {
-    // First make sure we are registered
-    const regResult = await registerPushSubscription();
-    if (!regResult.success) {
-      console.warn('Push registration warning before scheduling test:', regResult.message);
-    }
-
     const res = await fetch('/api/notifications/test-scheduled', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

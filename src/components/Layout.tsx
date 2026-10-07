@@ -186,11 +186,8 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 h-[100dvh] overflow-hidden">
-        {/* Modern Top Header Bar - Solid, Crisp, Notch-Aware */}
-        <header className="bg-white border-b border-slate-200 shadow-xs shrink-0 z-30 print:hidden select-none">
-          {/* Safe Area Notch Spacer for iPhone / Android PWA */}
-          <div className="h-[env(safe-area-inset-top,0px)] bg-white w-full shrink-0" />
-          
+        {/* Modern Top Header Bar - Solid, Crisp, High-Contrast */}
+        <header className="bg-white border-b border-slate-200 shrink-0 z-30 print:hidden select-none">
           <div className="h-14 px-3 md:px-8 flex items-center justify-between gap-2">
             {/* Left: Brand mark on mobile & Breadcrumbs */}
             <div className="flex items-center gap-2 min-w-0">
