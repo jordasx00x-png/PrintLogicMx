@@ -587,6 +587,27 @@ async function startServer() {
     }
   });
 
+  app.post('/api/notifications/test-scheduled', (req, res) => {
+    try {
+      const delaySeconds = Math.max(1, Math.min(60, Number(req.body.delaySeconds) || 5));
+      console.log(`Scheduling test push notification in ${delaySeconds} seconds for locked mobile test`);
+      
+      setTimeout(async () => {
+        await broadcastPushNotification({
+          title: '¡Prueba con Móvil Bloqueado Exitosa! 📱✨',
+          body: 'Las notificaciones de PrintFix funcionan perfectamente incluso con la app cerrada y el teléfono bloqueado.',
+          tag: `test-lock-${Date.now()}`,
+          data: { url: '/' }
+        });
+      }, delaySeconds * 1000);
+
+      res.json({ success: true, delaySeconds });
+    } catch (error) {
+      console.error('Error scheduling test notification:', error);
+      res.status(500).json({ error: 'Error scheduling test' });
+    }
+  });
+
   // Vite middleware
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

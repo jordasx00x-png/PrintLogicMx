@@ -67,6 +67,27 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 /**
+ * Helper to ensure a Service Worker registration is available
+ */
+async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return null;
+  }
+  try {
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    }
+    // Wait for the service worker to become ready/active
+    await navigator.serviceWorker.ready;
+    return reg;
+  } catch (err) {
+    console.warn('Could not obtain service worker registration:', err);
+    return null;
+  }
+}
+
+/**
  * Registers device for background Web Push notifications via Service Worker
  */
 export async function registerPushSubscription(): Promise<boolean> {
@@ -75,8 +96,8 @@ export async function registerPushSubscription(): Promise<boolean> {
   }
 
   try {
-    const registration = await navigator.serviceWorker.ready;
-    if (!registration) return false;
+    const registration = await getOrRegisterServiceWorker();
+    if (!registration || !registration.pushManager) return false;
 
     // 1. Fetch public VAPID key from backend
     const keyRes = await fetch('/api/notifications/vapid-public-key');
@@ -96,14 +117,18 @@ export async function registerPushSubscription(): Promise<boolean> {
     }
 
     // 3. Send subscription to backend
-    await fetch('/api/notifications/subscribe', {
+    const res = await fetch('/api/notifications/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subscription.toJSON())
     });
 
-    console.log('Registered for Web Push notifications');
-    return true;
+    if (res.ok) {
+      localStorage.setItem('printfix_push_registered', 'true');
+      console.log('✅ Device successfully registered for locked/closed background push notifications');
+      return true;
+    }
+    return false;
   } catch (err) {
     console.warn('Could not register Web Push subscription:', err);
     return false;
@@ -149,7 +174,7 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
   const settings = getNotificationSettings();
   if (!settings.enabled) return false;
 
-  // Sound & Vibrate
+  // Sound & Vibrate locally
   if (options.playSound !== false && settings.sound) {
     playNotificationSound();
   }
@@ -217,7 +242,25 @@ export async function sendAppNotification(options: ShowNotificationOptions): Pro
 
     return true;
   } catch (error) {
-    console.warn('Could not display system notification:', error);
+    console.warn('Could not display local system notification:', error);
+    return false;
+  }
+}
+
+/**
+ * Triggers a scheduled server push test with a delay (in seconds)
+ * allowing the user to lock their phone and verify the notification arrives on the lock screen.
+ */
+export async function scheduleTestPushForLockScreen(seconds: number = 5): Promise<boolean> {
+  try {
+    const res = await fetch('/api/notifications/test-scheduled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delaySeconds: seconds })
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Error scheduling lock screen push test:', err);
     return false;
   }
 }

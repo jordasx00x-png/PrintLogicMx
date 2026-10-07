@@ -185,9 +185,9 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
       </motion.aside>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Modern Top Header Bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-3 md:px-8 pt-[env(safe-area-inset-top,0px)] h-[calc(3.5rem+env(safe-area-inset-top,0px))] flex items-center justify-between gap-2 shadow-xs print:hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Modern Top Header Bar - Solid, Crisp, Notch-Aware */}
+        <header className="bg-white border-b border-slate-200 px-3 md:px-8 pt-[env(safe-area-inset-top,0px)] min-h-[56px] flex items-center justify-between gap-2 shadow-xs shrink-0 z-30 print:hidden select-none">
           {/* Left: Brand mark on mobile & Breadcrumbs */}
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -195,15 +195,15 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               className="md:hidden min-h-[40px] min-w-[40px] flex items-center justify-center text-slate-700 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
               title="Menú"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5 text-slate-800" />
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate">
               <span className="hidden sm:inline hover:text-slate-900 cursor-pointer font-medium" onClick={() => onNavigate('dashboard')}>
                 Taller
               </span>
               <span className="hidden sm:inline text-slate-300">/</span>
-              <span className="font-bold text-slate-900 text-sm sm:text-xs truncate">
+              <span className="font-bold text-slate-950 text-sm sm:text-xs truncate">
                 {currentViewTitle}
               </span>
             </div>
@@ -230,24 +230,24 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
             {/* Notification Status / Settings Bell Button */}
             <button
               onClick={() => onNavigate('settings')}
-              className="relative min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-600 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
+              className="relative min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-700 hover:text-slate-950 hover:bg-slate-100 active:scale-95 rounded-xl transition-colors cursor-pointer"
               title={permission === 'granted' ? 'Notificaciones Activadas (Configurar)' : 'Activar Notificaciones de Celular'}
             >
-              <Bell className="w-4 h-4" />
+              <Bell className="w-4 h-4 text-slate-800" />
               {permission === 'granted' ? (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
               ) : (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse ring-2 ring-white" />
               )}
             </button>
 
             {/* Mobile Search Button */}
             <button
               onClick={() => setIsQuickSearchOpen(true)}
-              className="sm:hidden min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-600 hover:text-slate-900 active:scale-95 rounded-xl cursor-pointer"
+              className="sm:hidden min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-700 hover:text-slate-950 active:scale-95 rounded-xl cursor-pointer"
               title="Buscar"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-4 h-4 text-slate-800" />
             </button>
 
             {currentView !== 'new' && (
@@ -274,15 +274,15 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
         </header>
 
         {/* Content Area - Extra padding on mobile to never clip behind bottom navigation */}
-        <main className="flex-1 p-3 md:p-6 lg:p-8 pb-32 md:pb-8 overflow-y-auto print:p-0">
+        <main className="flex-1 p-3 md:p-6 lg:p-8 pb-28 md:pb-8 overflow-y-auto print:p-0">
           <div className="max-w-7xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentView}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
               >
                 {children}
               </motion.div>

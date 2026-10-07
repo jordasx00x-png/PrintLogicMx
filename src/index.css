@@ -11,14 +11,28 @@
 }
 
 @layer base {
-  body {
+  html, body, #root {
     font-family: var(--font-sans);
     background-color: #F6F7F9;
     color: #0F172A;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
     overflow-x: hidden;
+  }
+
+  /* Force GPU transform stabilization and remove blur artifacts */
+  header, nav, aside {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
 
   /* Prevent automatic iOS/Android zoom on input focus */

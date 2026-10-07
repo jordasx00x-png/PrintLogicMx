@@ -20,7 +20,11 @@ self.addEventListener('push', function(event) {
     tag: data.tag || `printfix-alert-${Date.now()}`,
     data: data.data || { url: '/' },
     renotify: true,
-    requireInteraction: true
+    requireInteraction: true,
+    actions: [
+      { action: 'open', title: '👁️ Ver Equipo' },
+      { action: 'close', title: 'Cerrar' }
+    ]
   };
 
   event.waitUntil(
@@ -30,6 +34,8 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+  if (event.action === 'close') return;
+
   const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/';
 
   event.waitUntil(
