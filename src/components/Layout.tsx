@@ -158,7 +158,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
           <div className={clsx("p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80 flex items-center gap-2.5", isSidebarCollapsed ? "justify-center p-2" : "")}>
             <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-xs font-bold text-white">
               {user.photoURL ? (
-                <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" />
+                <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 user.name.charAt(0).toUpperCase()
               )}
@@ -464,8 +464,12 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
 
               <div className="pt-3 border-t border-slate-900 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                    {user.name.charAt(0)}
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-xs font-bold shrink-0 overflow-hidden">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      user.name.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">{user.name}</p>
