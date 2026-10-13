@@ -22,6 +22,7 @@ import {
 import { useSettings } from '../hooks/useSettings';
 import { useToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
+import { WorkshopOnboardingModal } from './WorkshopOnboardingModal';
 import { useNotifications } from '../hooks/useNotifications';
 import { 
   scheduleTestPushForLockScreen, 
@@ -50,6 +51,7 @@ export function CompanySettings() {
   const [isTestingNotif, setIsTestingNotif] = useState(false);
   const [lockTestCountdown, setLockTestCountdown] = useState<number | null>(null);
   const [activeDevices, setActiveDevices] = useState<number>(0);
+  const [showWizard, setShowWizard] = useState(false);
   const isDirtyRef = useRef(false);
 
   useEffect(() => {
@@ -247,15 +249,35 @@ export function CompanySettings() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-36 md:pb-20">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-          <Building className="w-6 h-6 text-indigo-600" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
+            <Building className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Configuración del Taller y Empresa</h1>
+            <p className="text-sm text-slate-500 font-medium">Personaliza los datos, logotipo y avisos automáticos para tu taller</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Configuración del Taller y Empresa</h1>
-          <p className="text-sm text-slate-500 font-medium">Personaliza los datos, logotipo y avisos automáticos para tu taller</p>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowWizard(true)}
+          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer self-start sm:self-auto"
+        >
+          <Sparkles className="w-4 h-4 text-blue-400" />
+          <span>Asistente de Identidad</span>
+        </button>
       </div>
+
+      {showWizard && (
+        <WorkshopOnboardingModal
+          initialSettings={settings}
+          onSave={updateSettings}
+          onClose={() => setShowWizard(false)}
+          isInitialSetup={false}
+        />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Notifications for Accepted Equipment Section */}

@@ -87,10 +87,28 @@ export function useStore(isAuthenticated: boolean = false) {
     seedServerDataToFirestore();
 
     // Subscribe to Firestore Real-Time updates across devices (Mobile <-> PC)
-    const unsubCheckIns = subscribeCheckIns((data) => setRawCheckIns(data));
-    const unsubProducts = subscribeProducts((data) => setProducts(data));
-    const unsubClients = subscribeClients((data) => setClients(data));
-    const unsubSales = subscribeSales((data) => setRawSales(data));
+    const unsubCheckIns = subscribeCheckIns((data) => {
+      if (data && data.length > 0) {
+        setRawCheckIns(data);
+      } else {
+        seedServerDataToFirestore();
+      }
+    });
+    const unsubProducts = subscribeProducts((data) => {
+      if (data && data.length > 0) {
+        setProducts(data);
+      }
+    });
+    const unsubClients = subscribeClients((data) => {
+      if (data && data.length > 0) {
+        setClients(data);
+      }
+    });
+    const unsubSales = subscribeSales((data) => {
+      if (data && data.length > 0) {
+        setRawSales(data);
+      }
+    });
 
     return () => {
       unsubCheckIns();

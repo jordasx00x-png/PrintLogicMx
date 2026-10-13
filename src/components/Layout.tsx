@@ -25,6 +25,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { OfflineIndicator } from './OfflineIndicator';
 import { useNotifications } from '../hooks/useNotifications';
+import { useSettings } from '../hooks/useSettings';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,6 +41,7 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { permission, requestPermission } = useNotifications();
+  const { settings } = useSettings();
 
   const navItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
@@ -92,8 +94,12 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
       >
         {/* Brand Header */}
         <div className={clsx("p-5 flex items-center gap-3 border-b border-slate-900", isSidebarCollapsed ? "justify-center" : "")}>
-          <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center shrink-0">
-            <Printer className="w-4 h-4 text-white" />
+          <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center shrink-0 overflow-hidden">
+            {settings.logo ? (
+              <img src={settings.logo} alt="Logo" className="w-full h-full object-contain p-0.5" />
+            ) : (
+              <Printer className="w-4 h-4 text-white" />
+            )}
           </div>
           {!isSidebarCollapsed && (
             <motion.div 
@@ -102,8 +108,8 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               exit={{ opacity: 0, x: -6 }}
               className="min-w-0"
             >
-              <span className="text-base font-black text-white tracking-tight font-display">
-                Print<span className="text-blue-500">Fix</span>
+              <span className="text-sm font-black text-white tracking-tight font-display truncate block">
+                {settings.name || 'PrintFix'}
               </span>
               <p className="text-[10px] text-slate-500 font-medium">Taller Profesional</p>
             </motion.div>
@@ -423,12 +429,18 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
               className="relative w-72 max-w-[85vw] bg-slate-950 text-slate-200 flex flex-col p-5 shadow-2xl z-10"
             >
               <div className="flex items-center justify-between pb-4 border-b border-slate-900">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white">
-                    <Printer className="w-4 h-4" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white shrink-0 overflow-hidden">
+                    {settings.logo ? (
+                      <img src={settings.logo} alt="Logo" className="w-full h-full object-contain p-0.5" />
+                    ) : (
+                      <Printer className="w-4 h-4" />
+                    )}
                   </div>
-                  <div>
-                    <span className="text-base font-black text-white font-display">PrintFix</span>
+                  <div className="min-w-0">
+                    <span className="text-sm font-black text-white font-display truncate block">
+                      {settings.name || 'PrintFix'}
+                    </span>
                     <p className="text-[10px] text-slate-500 font-medium">Taller Profesional</p>
                   </div>
                 </div>

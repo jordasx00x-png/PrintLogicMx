@@ -18,6 +18,8 @@ import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
 import { useToast } from './hooks/useToast';
 import { useNotifications } from './hooks/useNotifications';
+import { useSettings } from './hooks/useSettings';
+import { WorkshopOnboardingModal } from './components/WorkshopOnboardingModal';
 import { Sale } from './types';
 
 export default function App() {
@@ -31,6 +33,12 @@ export default function App() {
     loginWithPassword, 
     logout 
   } = useAuth();
+  const { settings, updateSettings } = useSettings(isAuthenticated);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const done = localStorage.getItem('printfix_workshop_onboarding_done');
+    return !done;
+  });
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -395,8 +403,6 @@ export default function App() {
     return (
       <AuthScreen 
         onLoginGoogle={loginWithGoogle} 
-        onLoginPassword={loginWithPassword} 
-        onLoginDirectAdmin={loginDirectAsAdmin}
         onLoginGoogleToken={loginWithGoogleToken}
       />
     );
@@ -405,6 +411,22 @@ export default function App() {
   return (
     <Layout currentView={currentView} onNavigate={handleNavigate} onLogout={logout} user={user}>
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      
+      {showOnboarding && (
+        <WorkshopOnboardingModal
+          initialSettings={settings}
+          onSave={async (newSettings) => {
+            const ok = await updateSettings(newSettings);
+            if (ok) {
+              addToast(`¡Taller "${newSettings.name}" configurado con éxito!`, 'success');
+            }
+            return ok;
+          }}
+          onClose={() => setShowOnboarding(false)}
+          isInitialSetup={true}
+        />
+      )}
+
       {currentView === 'dashboard' && (
         <Dashboard stats={stats} checkIns={checkIns} onViewDetails={handleViewDetails} onNavigate={handleNavigate} />
       )}
