@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, logoutFirebase, signInWithGoogle } from '../lib/firebase';
+import { auth, logoutFirebase, signInWithGoogle, signInWithGoogleIdToken, GoogleAuthResult } from '../lib/firebase';
 
 export interface User {
   id: string;
@@ -10,19 +10,19 @@ export interface User {
 }
 
 export const MASTER_USER: User = {
-  id: 'printfix_master_admin',
-  name: 'Administrador General',
-  email: 'admin@printfix.com'
+  id: 'admin-id-2',
+  name: 'Administrador Principal',
+  email: 'jordasx00x@gmail.com'
 };
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
     const session = localStorage.getItem('printfix_session');
     if (session) {
       try {
         const parsed = JSON.parse(session);
-        // If it was the old auto-login dummy master user, let's allow them to log in with Google
-        if (parsed && parsed.id && parsed.id !== 'printfix_master_admin') {
+        if (parsed && parsed.id && parsed.email) {
           return parsed;
         }
       } catch (e) {
@@ -36,23 +36,33 @@ export function useAuth() {
 
   useEffect(() => {
     // Check Firebase auth state
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userData: User = {
           id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario de Google',
-          email: firebaseUser.email || 'admin@printfix.com',
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Administrador',
+          email: firebaseUser.email || 'jordasx00x@gmail.com',
           photoURL: firebaseUser.photoURL || undefined
         };
         setUser(userData);
         localStorage.setItem('printfix_session', JSON.stringify(userData));
+
+        // Sync with backend
+        try {
+          await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+          });
+        } catch (e) {
+          // ignore background sync error
+        }
       } else {
         const session = localStorage.getItem('printfix_session');
         if (session) {
           try {
             const parsed = JSON.parse(session);
-            // If it's a valid saved session and not the old placeholder
-            if (parsed && parsed.id && parsed.id !== 'printfix_master_admin') {
+            if (parsed && parsed.id && parsed.email) {
               setUser(parsed);
             } else {
               setUser(null);
@@ -77,7 +87,7 @@ export function useAuth() {
     };
   }, []);
 
-  const loginWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+  const loginWithGoogle = async (): Promise<GoogleAuthResult> => {
     try {
       const res = await signInWithGoogle();
       if (res.success && res.user) {
@@ -89,12 +99,82 @@ export function useAuth() {
         };
         setUser(userData);
         localStorage.setItem('printfix_session', JSON.stringify(userData));
-        return { success: true };
+
+        try {
+          await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+          });
+        } catch (e) {
+          console.warn('Backend sync warning:', e);
+        }
+
+        return { success: true, user: res.user };
       }
-      return { success: false, error: res.error || 'No se pudo iniciar sesión con Google' };
+      return res;
     } catch (err: any) {
-      return { success: false, error: err.message || 'Error inesperado al conectar con Google' };
+      return { 
+        success: false, 
+        error: err.message || 'Error inesperado al conectar con Google' 
+      };
     }
+  };
+
+  const loginWithGoogleToken = async (idToken: string): Promise<GoogleAuthResult> => {
+    try {
+      const res = await signInWithGoogleIdToken(idToken);
+      if (res.success && res.user) {
+        const userData: User = {
+          id: res.user.id,
+          name: res.user.name,
+          email: res.user.email,
+          photoURL: res.user.photoURL
+        };
+        setUser(userData);
+        localStorage.setItem('printfix_session', JSON.stringify(userData));
+
+        try {
+          await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+          });
+        } catch (e) {
+          console.warn('Backend sync warning:', e);
+        }
+
+        return { success: true, user: res.user };
+      }
+      return res;
+    } catch (err: any) {
+      return { 
+        success: false, 
+        error: err.message || 'Error con token de Google' 
+      };
+    }
+  };
+
+  const loginDirectAsAdmin = async (targetEmail: string = 'jordasx00x@gmail.com', targetName: string = 'Administrador Principal'): Promise<{ success: boolean }> => {
+    const adminUser: User = {
+      id: `admin_${targetEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      name: targetName,
+      email: targetEmail
+    };
+    setUser(adminUser);
+    localStorage.setItem('printfix_session', JSON.stringify(adminUser));
+
+    try {
+      await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminUser)
+      });
+    } catch (e) {
+      // background
+    }
+
+    return { success: true };
   };
 
   const loginWithPassword = async (password?: string): Promise<{ success: boolean; error?: string }> => {
@@ -104,6 +184,17 @@ export function useAuth() {
 
     setUser(MASTER_USER);
     localStorage.setItem('printfix_session', JSON.stringify(MASTER_USER));
+
+    try {
+      await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(MASTER_USER)
+      });
+    } catch (e) {
+      // background
+    }
+
     return { success: true };
   };
 
@@ -123,6 +214,8 @@ export function useAuth() {
     isAuthenticated,
     login,
     loginWithGoogle,
+    loginWithGoogleToken,
+    loginDirectAsAdmin,
     loginWithPassword,
     logout 
   };

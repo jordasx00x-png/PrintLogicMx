@@ -147,13 +147,7 @@ seedAdmins.forEach(admin => {
   }
 });
 
-// Clear products on initial setup as requested
-try {
-  db.prepare('DELETE FROM products').run();
-  console.log('Cleared all products from SQLite database');
-} catch (e) {
-  console.log('Error clearing products table:', e);
-}
+
 
 async function startServer() {
   const app = express();

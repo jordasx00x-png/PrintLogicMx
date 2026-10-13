@@ -259,6 +259,28 @@ export async function seedServerDataToFirestore() {
         }
       }
     }
+
+    const productsSnap = await getDocs(productsCol);
+    if (productsSnap.empty) {
+      const res = await fetch('/api/products');
+      if (res.ok) {
+        const productsData: Product[] = await res.json();
+        for (const p of productsData) {
+          await saveProductToFirestore(p);
+        }
+      }
+    }
+
+    const settingsSnap = await getDocs(settingsCol);
+    if (settingsSnap.empty) {
+      const res = await fetch('/api/company-settings');
+      if (res.ok) {
+        const settingsData: CompanySettings = await res.json();
+        if (settingsData && settingsData.name) {
+          await saveSettingsToFirestore(settingsData);
+        }
+      }
+    }
   } catch (err) {
     console.error('Error seeding data to Firestore:', err);
   }

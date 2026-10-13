@@ -21,7 +21,16 @@ import { useNotifications } from './hooks/useNotifications';
 import { Sale } from './types';
 
 export default function App() {
-  const { user, isAuthReady, isAuthenticated, loginWithGoogle, loginWithPassword, logout } = useAuth();
+  const { 
+    user, 
+    isAuthReady, 
+    isAuthenticated, 
+    loginWithGoogle, 
+    loginWithGoogleToken,
+    loginDirectAsAdmin,
+    loginWithPassword, 
+    logout 
+  } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -383,7 +392,14 @@ export default function App() {
   }
 
   if (!user || !isAuthenticated) {
-    return <AuthScreen onLoginGoogle={loginWithGoogle} onLoginPassword={loginWithPassword} />;
+    return (
+      <AuthScreen 
+        onLoginGoogle={loginWithGoogle} 
+        onLoginPassword={loginWithPassword} 
+        onLoginDirectAdmin={loginDirectAsAdmin}
+        onLoginGoogleToken={loginWithGoogleToken}
+      />
+    );
   }
 
   return (
