@@ -12,6 +12,12 @@ export interface Printer {
   serialNumber?: string;
   problem: string;
   status: 'Ingresado' | 'Cotizado' | 'Aceptado' | 'Reparado' | 'Entregado';
+  printerType?: string;
+  accessories?: string[];
+  physicalCondition?: string;
+  advanceDeposit?: number;
+  assignedTechnician?: string;
+  priority?: 'Normal' | 'Urgente / Express' | 'Garantía';
 }
 
 export interface QuoteItem {
@@ -79,6 +85,7 @@ export interface CheckIn {
   quote?: Quote;
   quoteB?: Quote;
   notes?: string;
+  internalNotes?: string;
   statusHistory?: { status: string; date: string }[];
   createdAt: string;
 }

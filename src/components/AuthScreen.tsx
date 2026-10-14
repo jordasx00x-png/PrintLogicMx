@@ -5,14 +5,14 @@ import {
   Loader2, 
   RefreshCw,
   CheckCircle2,
-  Smartphone,
-  FileText,
-  Shield,
+  Sparkles,
   Zap,
+  ShieldCheck,
+  ChevronRight,
   Cpu,
   Layers,
-  ChevronRight,
-  Sparkles
+  Smartphone,
+  FileText
 } from 'lucide-react';
 import { GoogleAuthResult, activeConfig } from '../lib/firebase';
 
@@ -27,46 +27,42 @@ export function AuthScreen({
 }: AuthScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-  const [activeFeatureTab, setActiveFeatureTab] = useState(0);
   const gsiContainerRef = useRef<HTMLDivElement>(null);
 
-  const featureTabs = [
+  const highlights = [
     {
-      icon: Zap,
-      title: 'Diagnóstico & Recepción Express',
-      desc: 'Registra marca, serie, fallas y fotos del equipo en menos de 30 segundos.',
-      tag: 'Recepción Rápida',
-      stat: '03 min',
-      statLabel: 'Tiempo promedio de ingreso'
+      title: 'Recepción & Diagnóstico en 30s',
+      desc: 'Registra marca, número de serie, accesorios y fallas con captura fotográfica instantánea.',
+      badge: 'Velocidad Óptima',
+      metric: '0.5m',
+      metricLabel: 'Por ticket'
     },
     {
-      icon: FileText,
-      title: 'Cotizaciones A/B con WhatsApp',
-      desc: 'Genera propuestas estándar y premium con desglose de refacciones y mano de obra.',
-      tag: 'Presupuestos PDF',
-      stat: '100%',
-      statLabel: 'Control de garantías'
+      title: 'Cotizaciones con Envío a WhatsApp',
+      desc: 'Envía propuestas profesionales con desglose de refacciones y mano de obra directamente al celular del cliente.',
+      badge: 'Conversión +45%',
+      metric: '1-Click',
+      metricLabel: 'Envío directo'
     },
     {
-      icon: Smartphone,
-      title: 'Notificaciones Móvil en Tiempo Real',
-      desc: 'Recibe alertas sonoras en tu celular bloqueado cuando el cliente apruebe la reparación.',
-      tag: 'PWA Multi-dispositivo',
-      stat: 'En vivo',
-      statLabel: 'Sincronización PC y Móvil'
+      title: 'Sincronización Cloud Multi-dispositivo',
+      desc: 'Accede desde tu computadora de mostrador o tu teléfono celular con sincronización en tiempo real.',
+      badge: 'PWA Multiplataforma',
+      metric: '100%',
+      metricLabel: 'En tiempo real'
     }
   ];
 
-  // Auto-cycle through features every 5 seconds if idle
+  // Auto-advance highlight tabs
   useEffect(() => {
     const timer = setInterval(() => {
-      setActiveFeatureTab((prev) => (prev + 1) % featureTabs.length);
-    }, 5000);
+      setActiveTab((prev) => (prev + 1) % highlights.length);
+    }, 4500);
     return () => clearInterval(timer);
-  }, [featureTabs.length]);
+  }, [highlights.length]);
 
-  // Track mouse for dynamic ambient glow
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -104,12 +100,12 @@ export function AuthScreen({
 
           if (gsiContainerRef.current) {
             google.accounts.id.renderButton(gsiContainerRef.current, {
-              theme: 'outline',
+              theme: 'filled_black',
               size: 'large',
               type: 'standard',
               text: 'continue_with',
               shape: 'pill',
-              width: 320
+              width: 340
             });
           }
         } catch (e) {
@@ -138,168 +134,165 @@ export function AuthScreen({
     }
   };
 
-  const currentTab = featureTabs[activeFeatureTab];
-  const CurrentIcon = currentTab.icon;
+  const currentHighlight = highlights[activeTab];
 
   return (
     <div 
       onMouseMove={handleMouseMove}
-      className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-12 relative overflow-hidden selection:bg-blue-500/30 selection:text-white"
+      className="min-h-screen bg-[#07090E] text-slate-100 flex items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden selection:bg-blue-500/30 selection:text-white"
     >
-      {/* Dynamic Interactive Ambient Mesh Background */}
+      {/* Dynamic Ambient Mesh Glow following mouse */}
       <div 
         className="absolute inset-0 pointer-events-none transition-all duration-700 ease-out"
         style={{
           background: `
-            radial-gradient(circle 800px at ${mousePos.x}% ${mousePos.y}%, rgba(37, 99, 235, 0.12), transparent 80%),
-            radial-gradient(circle 600px at 80% 20%, rgba(14, 165, 233, 0.08), transparent 70%),
-            radial-gradient(circle 700px at 15% 85%, rgba(99, 102, 241, 0.08), transparent 70%)
+            radial-gradient(circle 700px at ${mousePos.x}% ${mousePos.y}%, rgba(37, 99, 235, 0.15), transparent 70%),
+            radial-gradient(circle 600px at 90% 10%, rgba(56, 189, 248, 0.1), transparent 60%),
+            radial-gradient(circle 800px at 10% 90%, rgba(99, 102, 241, 0.1), transparent 70%)
           `
         }}
       />
 
-      {/* Subtle blueprint grid overlay */}
+      {/* Subtle Matrix Grid */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-20"
+        className="absolute inset-0 pointer-events-none opacity-[0.03]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+            linear-gradient(to right, #ffffff 1px, transparent 1px),
+            linear-gradient(to bottom, #ffffff 1px, transparent 1px)
           `,
-          backgroundSize: '40px 40px'
+          backgroundSize: '32px 32px'
         }}
       />
 
-      {/* Main Container */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+      {/* Main Layout Container */}
+      <div className="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
         
-        {/* Left Side: Dynamic Feature Showcase (Visible on all, expanded on desktop) */}
-        <div className="lg:col-span-7 space-y-6 lg:pr-4">
+        {/* Left Column: Dynamic Interactive Showcase */}
+        <div className="lg:col-span-7 space-y-6">
           
-          {/* Top Live Badge */}
-          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 backdrop-blur-md shadow-sm">
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 backdrop-blur-xl shadow-lg">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
             </span>
-            <span className="text-[11px] font-bold text-slate-300 font-mono tracking-wide">
-              PrintFix OS v2.4 • Taller Inteligente
+            <span className="text-xs font-semibold text-slate-200 tracking-wide font-mono">
+              PrintFix OS • Sistema de Taller Inteligente v2.4
             </span>
           </div>
 
-          {/* Hero Headings */}
+          {/* Headline */}
           <div className="space-y-3">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white font-display leading-[1.15]">
-              Gestión total para tu{' '}
+            <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-[1.1] font-display">
+              La evolución digital para tu{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300">
                 taller de impresoras.
               </span>
             </h1>
-            <p className="text-sm sm:text-base text-slate-400 max-w-lg leading-relaxed">
-              Controla ingresos, diagnósticos de inyectores, presupuestos con WhatsApp y refacciones desde un solo lugar.
+            <p className="text-sm sm:text-base text-slate-400 max-w-xl leading-relaxed">
+              Controla cada equipo que ingresa, automatiza cotizaciones con WhatsApp, lleva el inventario de refacciones y administra tus notas de entrega en segundos.
             </p>
           </div>
 
-          {/* Interactive Feature Carousel Card */}
-          <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-blue-500/15 transition-all" />
+          {/* Interactive Feature Card */}
+          <div className="p-6 rounded-3xl bg-slate-900/70 border border-slate-800 backdrop-blur-2xl shadow-2xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-blue-500/25 transition-all duration-500" />
             
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-inner">
-                  <CurrentIcon className="w-5 h-5 text-blue-400" />
+                <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-inner">
+                  <Zap className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono">
-                    {currentTab.tag}
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest font-mono">
+                    {currentHighlight.badge}
                   </span>
-                  <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                    {currentTab.title}
+                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                    {currentHighlight.title}
                   </h3>
                 </div>
               </div>
 
               <div className="text-right hidden sm:block">
-                <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                  {currentTab.stat}
+                <span className="text-sm font-mono font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-xl border border-emerald-500/20 shadow-inner">
+                  {currentHighlight.metric}
                 </span>
-                <p className="text-[10px] text-slate-500 mt-1">{currentTab.statLabel}</p>
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">{currentHighlight.metricLabel}</p>
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              {currentTab.desc}
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {currentHighlight.desc}
             </p>
 
-            {/* Interactive Feature Selectors */}
-            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-slate-800/60">
-              {featureTabs.map((tab, idx) => (
+            {/* Interactive Tab Selectors */}
+            <div className="flex items-center gap-2 mt-6 pt-4 border-t border-slate-800/80">
+              {highlights.map((item, idx) => (
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => setActiveFeatureTab(idx)}
-                  className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer ${
-                    activeFeatureTab === idx
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                      : 'bg-slate-950/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  onClick={() => setActiveTab(idx)}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-2 ${
+                    activeTab === idx
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-[1.02]'
+                      : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                   }`}
                 >
-                  Paso {idx + 1}
+                  <span>Módulo {idx + 1}</span>
+                  {activeTab === idx && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Supported Printer Brands Marquee */}
-          <div className="pt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
-            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Compatible:</span>
-            {['Epson EcoTank', 'Brother InkBenefit', 'HP Smart Tank', 'Canon MegaTank', 'Kyocera'].map((brand, i) => (
-              <span 
-                key={i} 
-                className="px-2.5 py-1 rounded-lg bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400"
-              >
-                {brand}
+          {/* Printer Brands pills */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-400 font-medium">
+            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Compatible con:</span>
+            {['Epson EcoTank', 'Brother InkBenefit', 'HP Smart Tank', 'Canon MegaTank', 'Kyocera'].map((b, i) => (
+              <span key={i} className="px-3 py-1 rounded-xl bg-slate-900/80 border border-slate-800/80 text-xs text-slate-300 shadow-sm">
+                {b}
               </span>
             ))}
           </div>
 
         </div>
 
-        {/* Right Side: Ultra-Modern Interactive Google Auth Card */}
+        {/* Right Column: Modern Dynamic Login Card */}
         <div className="lg:col-span-5 w-full">
-          <div className="relative rounded-3xl bg-slate-900/85 border border-slate-800 p-7 sm:p-9 shadow-2xl backdrop-blur-2xl overflow-hidden transition-all duration-300 hover:border-slate-700/80">
+          <div className="relative rounded-3xl bg-slate-900/85 border border-slate-800 p-8 sm:p-10 shadow-2xl backdrop-blur-3xl overflow-hidden transition-all duration-300 hover:border-slate-700/80">
             
-            {/* Top corner subtle glow */}
-            <div className="absolute -top-16 -right-16 w-36 h-36 bg-blue-500/20 rounded-full blur-2xl pointer-events-none" />
+            {/* Top Corner Glowing Orb */}
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Brand Header */}
-            <div className="flex items-center gap-3.5 mb-7">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 p-0.5 shadow-lg shadow-blue-500/20">
+            {/* Header Brand */}
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-sky-400 p-0.5 shadow-xl shadow-blue-500/20">
                 <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-                  <Printer className="w-6 h-6 text-blue-400" />
+                  <Printer className="w-7 h-7 text-blue-400" />
                 </div>
               </div>
               <div>
                 <span className="text-2xl font-black tracking-tight text-white font-display">
                   Print<span className="text-blue-400">Fix</span>
                 </span>
-                <p className="text-[11px] text-slate-400 font-medium">Sistema de Taller y Reparaciones</p>
+                <p className="text-xs text-slate-400 font-medium">Sistema de Gestión de Taller</p>
               </div>
             </div>
 
-            {/* Login Prompt Title */}
-            <div className="space-y-1.5 mb-7">
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white font-display">
-                Iniciar Sesión
+            {/* Title & Subtitle */}
+            <div className="space-y-2 mb-8">
+              <h2 className="text-2xl font-black tracking-tight text-white font-display">
+                Bienvenido al Taller
               </h2>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Accede de forma rápida y segura con tu cuenta de Google para entrar al taller.
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Inicia sesión de forma instantánea y segura con tu cuenta de Google.
               </p>
             </div>
 
-            {/* Error Notification */}
+            {/* Error Message */}
             {errorMessage && (
-              <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-2xl flex items-start gap-2.5 text-xs font-semibold mb-6 animate-in fade-in">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-2xl flex items-start gap-3 text-xs font-semibold mb-6 animate-in fade-in">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-400 mt-0.5" />
                 <div className="flex-1 leading-relaxed">
                   <span>{errorMessage}</span>
@@ -307,7 +300,7 @@ export function AuthScreen({
               </div>
             )}
 
-            {/* Primary Google Login Button */}
+            {/* Primary Login Actions */}
             <div className="space-y-4">
               <button
                 type="button"
@@ -315,17 +308,17 @@ export function AuthScreen({
                 disabled={isGoogleLoading}
                 className="group relative w-full py-4 px-6 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-900 text-sm font-bold rounded-2xl shadow-xl shadow-white/5 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer border border-slate-200 overflow-hidden"
               >
-                {/* Subtle shine hover effect */}
+                {/* Hover shine effect */}
                 <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-blue-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
 
                 {isGoogleLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                    <span className="font-bold">Iniciando sesión con Google...</span>
+                    <span>Conectando con Google...</span>
                   </>
                 ) : (
                   <>
-                    {/* Official Google G Logo */}
+                    {/* Google SVG Logo */}
                     <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
@@ -349,41 +342,40 @@ export function AuthScreen({
                 )}
               </button>
 
-              {/* GIS One-Tap Container */}
+              {/* GIS One Tap Container */}
               <div ref={gsiContainerRef} className="flex justify-center empty:hidden" />
 
-              {/* Retry Button if an error was encountered */}
               {errorMessage && (
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
                   disabled={isGoogleLoading}
-                  className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-4 h-4" />
                   <span>Reintentar inicio con Google</span>
                 </button>
               )}
             </div>
 
-            {/* Trust and Feature Bullets */}
-            <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-2.5 text-slate-400 text-xs">
-              <div className="flex items-center gap-2">
+            {/* Security checklist */}
+            <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-3 text-slate-400 text-xs">
+              <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Sincronización en la nube multi-dispositivo</span>
+                <span>Sincronización multi-dispositivo en tiempo real</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Órdenes de servicio, clientes y refacciones</span>
+                <span>Control de equipos, refacciones y clientes</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Cotizaciones con envío directo a WhatsApp</span>
+                <span>Cotizaciones con botón directo a WhatsApp</span>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-400 text-center mt-6">
-              PrintFix © 2026 • Plataforma Profesional de Gestión
+            <p className="text-[11px] text-slate-400 text-center mt-8 font-medium">
+              PrintFix © 2026 • Plataforma de Gestión de Talleres
             </p>
 
           </div>

@@ -8,17 +8,16 @@ import {
   MapPin, 
   Printer, 
   ArrowLeft, 
-  UserCheck, 
-  UserPlus,
   Barcode, 
   ShieldCheck, 
   X,
-  Sparkles,
   Wrench,
   Tag,
   CheckCircle2,
-  ChevronDown,
-  Building
+  DollarSign,
+  UserCheck,
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -31,16 +30,22 @@ interface NewCheckInProps {
 }
 
 const POPULAR_BRANDS = ['Epson', 'HP', 'Canon', 'Brother', 'Kyocera', 'Samsung', 'Zebra', 'Ricoh'];
+const TECHNICIANS = ['Técnico en Turno', 'Carlos Martínez', 'Roberto Gómez', 'Ing. Alejandro Ramírez', 'Miguel Ángel Torres'];
+const PRIORITIES = [
+  { id: 'Normal', label: 'Normal (3-5 días)', color: 'bg-slate-100 text-slate-700 border-slate-200' },
+  { id: 'Urgente / Express', label: 'Urgente / Express (24 hrs)', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { id: 'Garantía', label: 'Garantía de Taller', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+];
 
 const COMMON_PROBLEMS = [
-  'No enciende',
-  'Atasco de papel',
-  'Almohadillas llenas / Reset',
-  'No jala papel',
-  'Líneas blancas / Rayas',
-  'Error de carro / Atasco',
-  'Mantenimiento preventivo',
-  'Derrame de tinta'
+  'No enciende / Corto eléctrico',
+  'Atasco de papel frecuente / Rodillos',
+  'Almohadillas llenas / Reset necesario',
+  'No jala papel / Patín de toma gastado',
+  'Líneas blancas / Rayas en impresión',
+  'No reconoce cartuchos / tóner / chip',
+  'Mantenimiento preventivo completo',
+  'Derrame de tinta / Limpieza de cabezales'
 ];
 
 export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSaving = false }: NewCheckInProps) {
@@ -53,10 +58,13 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     printerModel: '',
     printerSerialNumber: '',
     printerProblem: '',
+    advanceDeposit: '',
+    assignedTechnician: 'Técnico en Turno',
+    priority: 'Normal' as 'Normal' | 'Urgente / Express' | 'Garantía',
+    internalNotes: '',
   });
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [isNameFocused, setIsNameFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const clientNameInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -153,7 +161,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     }));
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (selectedClient && name.startsWith('client')) {
@@ -193,91 +201,91 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
         serialNumber: formData.printerSerialNumber.trim(),
         problem: formData.printerProblem.trim(),
         status: 'Ingresado',
+        assignedTechnician: formData.assignedTechnician,
+        priority: formData.priority,
+        advanceDeposit: formData.advanceDeposit ? parseFloat(formData.advanceDeposit) : undefined,
       },
+      internalNotes: formData.internalNotes.trim() || undefined,
     });
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.99 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.2 }}
-      className="w-full max-w-7xl mx-auto space-y-3 pb-8"
-    >
-      <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="w-full max-w-6xl mx-auto space-y-6 pb-16 font-sans">
+      <form onSubmit={handleSubmit} className="space-y-6">
         
-        {/* Compact Header Bar with SINGLE Unified Save Action */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 px-4 py-2.5 shadow-xs flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+        {/* Professional Header Bar */}
+        <div className="bg-slate-900 text-white rounded-2xl px-6 py-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800">
+          <div className="flex items-center gap-4">
             <button 
               type="button"
               onClick={onCancel}
-              className="p-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 rounded-xl transition-all cursor-pointer shrink-0"
+              className="p-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-xl transition-all cursor-pointer border border-slate-700"
               title="Volver"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight font-display flex items-center gap-1.5 truncate">
-                <span>Nuevo Ingreso al Taller</span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
-                  <Sparkles className="w-3 h-3" /> En Vivo
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                  Estación de Recepción Pro
                 </span>
+                <span className="text-xs text-slate-400 font-mono">TICKET-INTAKE</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-display mt-0.5">
+                Ingreso de Impresora al Taller
               </h1>
-              <p className="text-[11px] text-slate-500 hidden md:block truncate">
-                Registra los datos del cliente y del equipo en una sola vista.
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onCancel}
-              className="hidden sm:block px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             
-            {/* The ONLY Save Button on the entire screen */}
             <button
               type="submit"
               disabled={isSaving}
-              className="btn-tactile px-4 py-2 sm:px-5 sm:py-2.5 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+              className="btn-tactile px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer border border-blue-400/30"
             >
               {isSaving ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <Save className="w-4 h-4 text-emerald-400" />
+                <Save className="w-4 h-4 text-white" />
               )}
-              <span>{isSaving ? 'Guardando...' : 'Guardar Ingreso'}</span>
+              <span>{isSaving ? 'Guardando Registro...' : 'Guardar e Imprimir Orden'}</span>
             </button>
           </div>
         </div>
 
-        {/* 2-Column Full Screen Viewport-Optimized Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* 2-Column Professional Form Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Card 1: Datos del Cliente */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between space-y-3 relative">
+          {/* Section 1: Datos del Propietario */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between space-y-5">
             <div>
-              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-bold">
-                    <User className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-bold border border-slate-200">
+                    <User className="w-5 h-5 text-slate-700" />
                   </div>
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">1. Datos del Cliente</h2>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paso 01</span>
+                    <h2 className="text-sm font-bold text-slate-900">Información del Propietario</h2>
+                  </div>
                 </div>
 
                 {selectedClient ? (
-                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg text-[11px] font-bold border border-emerald-200 animate-in fade-in zoom-in-95 duration-150">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Cliente Añadido</span>
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Vinculado</span>
                     <button
                       type="button"
                       onClick={handleClearClient}
                       className="ml-1 text-emerald-700 hover:text-emerald-950 p-0.5 rounded cursor-pointer"
-                      title="Cambiar cliente"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -291,9 +299,9 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                       if (found) selectClient(found);
                     }}
                     value=""
-                    className="text-[11px] font-bold px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-slate-400 max-w-[180px] sm:max-w-[210px] truncate"
+                    className="text-xs font-semibold px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900/10 max-w-[190px] truncate"
                   >
-                    <option value="">👤 Directorio clientes...</option>
+                    <option value="">Directorio de clientes...</option>
                     {uniqueClients.map((client, idx) => (
                       <option key={client.id || idx} value={client.id || client.email || client.phone || client.name}>
                         {client.name} {client.phone ? `(${client.phone})` : ''}
@@ -303,24 +311,22 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 ) : null}
               </div>
 
-              {/* Client Input Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2.5">
-                
-                {/* Nombre Completo with Interactive Autocomplete Dropdown */}
-                <div className="space-y-1 relative sm:col-span-2">
+              {/* Fields */}
+              <div className="space-y-4 pt-4">
+                <div className="space-y-1.5 relative">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="clientName" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Nombre Completo *
+                    <label htmlFor="clientName" className="block text-xs font-bold text-slate-700">
+                      Nombre Completo o Razón Social <span className="text-rose-500">*</span>
                     </label>
                     {matchingClients.length > 0 && showSuggestions && (
-                      <span className="text-[10px] font-bold text-blue-600 animate-pulse">
-                        {matchingClients.length} cliente{matchingClients.length > 1 ? 's' : ''} encontrado{matchingClients.length > 1 ? 's' : ''}
+                      <span className="text-[11px] font-semibold text-blue-600">
+                        {matchingClients.length} cliente{matchingClients.length > 1 ? 's' : ''} sugerido{matchingClients.length > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
                   
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       ref={clientNameInputRef}
                       type="text"
@@ -330,172 +336,141 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                       autoComplete="off"
                       value={formData.clientName}
                       onChange={handleChange}
-                      onFocus={() => {
-                        setIsNameFocused(true);
-                        setShowSuggestions(true);
-                      }}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      placeholder="Escribe el nombre del cliente..."
+                      onFocus={() => setShowSuggestions(true)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
+                      placeholder="Ej. Juan Pérez / Empresa S.A."
                     />
                   </div>
 
-                  {/* Autocomplete Suggestions Dropdown Box */}
+                  {/* Suggestions Dropdown */}
                   <AnimatePresence>
                     {showSuggestions && matchingClients.length > 0 && !selectedClient && (
                       <motion.div
                         ref={dropdownRef}
-                        initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden p-2 space-y-1.5"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden p-1.5 space-y-1"
                       >
-                        <div className="px-2 py-1 flex items-center justify-between border-b border-slate-100">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Clientes Registrados Encontrados
-                          </span>
-                          <span className="text-[10px] text-blue-600 font-semibold">Toca para añadir</span>
+                        <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                          Seleccionar cliente existente
                         </div>
-
-                        <div className="max-h-60 overflow-y-auto space-y-1 divide-y divide-slate-50">
-                          {matchingClients.map((client, idx) => (
-                            <div
-                              key={client.id || idx}
-                              onClick={() => selectClient(client)}
-                              className="p-2.5 rounded-xl hover:bg-blue-50/80 active:bg-blue-100/80 cursor-pointer transition-all flex items-center justify-between gap-3 group border border-transparent hover:border-blue-100"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-blue-100/70 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                  {client.name ? client.name.charAt(0).toUpperCase() : 'C'}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-bold text-slate-900 group-hover:text-blue-900 truncate">
-                                    {client.name}
-                                  </p>
-                                  <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
-                                    {client.phone && (
-                                      <span className="flex items-center gap-1 font-mono">
-                                        <Phone className="w-3 h-3 text-slate-400" />
-                                        {client.phone}
-                                      </span>
-                                    )}
-                                    {client.email && (
-                                      <span className="hidden sm:inline truncate max-w-[140px] text-slate-400">
-                                        {client.email}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  selectClient(client);
-                                }}
-                                className="btn-tactile px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 shrink-0 shadow-2xs group-hover:scale-102 transition-transform"
-                              >
-                                <UserPlus className="w-3 h-3" />
-                                <span>Añadir</span>
-                              </button>
+                        {matchingClients.map((client, idx) => (
+                          <div
+                            key={client.id || idx}
+                            onClick={() => selectClient(client)}
+                            className="p-2.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="text-xs font-bold text-slate-900">{client.name}</p>
+                              <p className="text-[11px] text-slate-500 font-mono">{client.phone} {client.email ? `• ${client.email}` : ''}</p>
                             </div>
-                          ))}
-                        </div>
+                            <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-1 rounded-md">Vincular</span>
+                          </div>
+                        ))}
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
 
-                <div className="space-y-1">
-                  <label htmlFor="clientPhone" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Teléfono / WhatsApp
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input
-                      type="tel"
-                      id="clientPhone"
-                      name="clientPhone"
-                      value={formData.clientPhone}
-                      onChange={handleChange}
-                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Ej. 55 1234 5678"
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label htmlFor="clientPhone" className="block text-xs font-bold text-slate-700">
+                      Teléfono / WhatsApp <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="tel"
+                        id="clientPhone"
+                        name="clientPhone"
+                        required
+                        value={formData.clientPhone}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                        placeholder="Ej. 55 1234 5678"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="clientEmail" className="block text-xs font-bold text-slate-700">
+                      Correo Electrónico
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="email"
+                        id="clientEmail"
+                        name="clientEmail"
+                        value={formData.clientEmail}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                        placeholder="correo@ejemplo.com"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label htmlFor="clientEmail" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Correo Electrónico (Opcional)
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input
-                      type="email"
-                      id="clientEmail"
-                      name="clientEmail"
-                      value={formData.clientEmail}
-                      onChange={handleChange}
-                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="correo@ejemplo.com (Opcional)"
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2 space-y-1">
-                  <label htmlFor="clientAddress" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <div className="space-y-1.5">
+                  <label htmlFor="clientAddress" className="block text-xs font-bold text-slate-700">
                     Dirección (Opcional)
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
                       id="clientAddress"
                       name="clientAddress"
                       value={formData.clientAddress}
                       onChange={handleChange}
-                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Calle, Número, Colonia"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                      placeholder="Calle, Número, Colonia, Ciudad"
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 text-[10px] text-slate-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Los datos del cliente se autocompletan y guardan en el directorio automáticamente.</span>
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span className="flex items-center gap-2 font-medium">
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                Registro automático en directorio
+              </span>
+              <span className="font-mono text-[11px] text-slate-400">CRM v2</span>
             </div>
           </div>
 
-          {/* Card 2: Datos del Equipo e Impresora */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between space-y-3">
+          {/* Section 2: Datos del Equipo e Impresora */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between space-y-5">
             <div>
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center font-bold">
-                    <Printer className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-bold border border-slate-200">
+                    <Printer className="w-5 h-5 text-slate-700" />
                   </div>
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-900">2. Datos del Equipo e Impresora</h2>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paso 02</span>
+                    <h2 className="text-sm font-bold text-slate-900">Especificaciones de la Impresora</h2>
+                  </div>
                 </div>
               </div>
 
-              {/* Dynamic Quick Brand Chips */}
-              <div className="pt-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                  Marca Rápida:
-                </p>
+              {/* Marcas Frecuentes */}
+              <div className="pt-4 space-y-2">
+                <label className="block text-xs font-bold text-slate-700">
+                  Selección Rápida de Marca
+                </label>
                 <div className="flex flex-wrap gap-1.5">
                   {POPULAR_BRANDS.map(brand => (
                     <button
                       key={brand}
                       type="button"
                       onClick={() => handleSelectBrand(brand)}
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                         formData.printerBrand.toLowerCase() === brand.toLowerCase()
-                          ? 'bg-slate-900 text-white shadow-xs scale-102'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
                       {brand}
@@ -504,69 +479,96 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 </div>
               </div>
 
-              {/* Printer Input Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2.5">
-                <div className="space-y-1">
-                  <label htmlFor="printerBrand" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Marca *
-                  </label>
-                  <input
-                    type="text"
-                    id="printerBrand"
-                    name="printerBrand"
-                    required
-                    value={formData.printerBrand}
-                    onChange={handleChange}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    placeholder="Ej. Epson, HP, Canon"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="printerModel" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Modelo *
-                  </label>
-                  <input
-                    type="text"
-                    id="printerModel"
-                    name="printerModel"
-                    required
-                    value={formData.printerModel}
-                    onChange={handleChange}
-                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    placeholder="Ej. L3150, Smart Tank 515"
-                  />
-                </div>
-
-                <div className="sm:col-span-2 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="printerSerialNumber" className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Número de Serie / S/N
+              {/* Fields */}
+              <div className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label htmlFor="printerBrand" className="block text-xs font-bold text-slate-700">
+                      Marca <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] font-bold text-emerald-600">Para control de garantía</span>
-                  </div>
-                  <div className="relative">
-                    <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <input
                       type="text"
-                      id="printerSerialNumber"
-                      name="printerSerialNumber"
-                      value={formData.printerSerialNumber}
+                      id="printerBrand"
+                      name="printerBrand"
+                      required
+                      value={formData.printerBrand}
                       onChange={handleChange}
-                      className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 uppercase"
-                      placeholder="Ej. X7Y908123456"
+                      className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                      placeholder="Ej. Epson, HP, Canon"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="printerModel" className="block text-xs font-bold text-slate-700">
+                      Modelo Exacto <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="printerModel"
+                      name="printerModel"
+                      required
+                      value={formData.printerModel}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                      placeholder="Ej. L3150, EcoTank, LaserJet"
                     />
                   </div>
                 </div>
 
-                {/* S/N Previous History Banner if match */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label htmlFor="printerSerialNumber" className="block text-xs font-bold text-slate-700">
+                      Número de Serie / S/N
+                    </label>
+                    <div className="relative">
+                      <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        id="printerSerialNumber"
+                        name="printerSerialNumber"
+                        value={formData.printerSerialNumber}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 uppercase"
+                        placeholder="Ej. X7Y908"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Técnico Asignado */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="assignedTechnician" className="block text-xs font-bold text-slate-700">
+                      Técnico Responsable
+                    </label>
+                    <div className="relative">
+                      <UserCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <select
+                        id="assignedTechnician"
+                        name="assignedTechnician"
+                        value={formData.assignedTechnician}
+                        onChange={handleChange}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer"
+                      >
+                        {TECHNICIANS.map(tech => (
+                          <option key={tech} value={tech}>{tech}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* S/N Previous History Alert */}
                 {latestSerialCheckIn && (
-                  <div className="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-xl p-2 text-xs text-amber-900 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="text-[10px] font-bold truncate">
-                        Equipo registrado ({daysSinceLastDelivery === 0 ? 'hoy' : `hace ${daysSinceLastDelivery}d`})
-                      </span>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs truncate">
+                          Equipo registrado ({daysSinceLastDelivery === 0 ? 'hoy' : `hace ${daysSinceLastDelivery} días`})
+                        </p>
+                        <p className="text-[11px] text-amber-700 truncate">
+                          Anterior: {latestSerialCheckIn.client?.name} • Estado: {latestSerialCheckIn.printer.status}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -581,7 +583,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                           clientAddress: latestSerialCheckIn.client?.address || prev.clientAddress,
                         }));
                       }}
-                      className="text-[10px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded-md hover:bg-amber-700 cursor-pointer shrink-0"
+                      className="text-[11px] font-bold bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 cursor-pointer shrink-0"
                     >
                       Autocompletar
                     </button>
@@ -589,58 +591,149 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                 )}
               </div>
             </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span className="font-medium">Validación de número de serie</span>
+              <span className="font-mono text-[11px] text-slate-400">Hardware ID</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Section 3: Diagnóstico, Prioridad y Anticipo */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-100 text-slate-800 rounded-xl flex items-center justify-center font-bold border border-slate-200">
+                <Wrench className="w-5 h-5 text-slate-700" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Paso 03</span>
+                <h2 className="text-sm font-bold text-slate-900">Diagnóstico, Prioridad y Anticipo</h2>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Prioridad */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">Prioridad:</span>
+                <select
+                  name="priority"
+                  value={formData.priority}
+                  onChange={handleChange}
+                  className="text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                >
+                  <option value="Normal">Normal (3-5 días)</option>
+                  <option value="Urgente / Express">Urgente / Express (24h)</option>
+                  <option value="Garantía">Garantía de Taller</option>
+                </select>
+              </div>
+
+              {/* Anticipo */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">Anticipo ($):</span>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="advanceDeposit"
+                    value={formData.advanceDeposit}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    className="w-32 pl-8 pr-3.5 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Problem Chips */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-700">
+              Síntomas Frecuentes (Clic para agregar al reporte)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {COMMON_PROBLEMS.map(prob => {
+                const isSelected = formData.printerProblem.includes(prob);
+                return (
+                  <button
+                    key={prob}
+                    type="button"
+                    onClick={() => handleAddProblemTag(prob)}
+                    className={`text-xs font-semibold px-3.5 py-2 rounded-xl border transition-all cursor-pointer flex items-center gap-2 ${
+                      isSelected
+                        ? 'bg-slate-900 text-white border-slate-900 font-bold shadow-xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Tag className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{prob}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="printerProblem" className="block text-xs font-bold text-slate-700">
+                Falla Reportada por el Cliente <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                id="printerProblem"
+                name="printerProblem"
+                required
+                rows={3}
+                value={formData.printerProblem}
+                onChange={handleChange}
+                className="w-full px-4 py-3 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 resize-none"
+                placeholder="Describa detalladamente el problema reportado..."
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="internalNotes" className="block text-xs font-bold text-slate-700">
+                Notas Internas del Taller (Privadas / Técnicas)
+              </label>
+              <textarea
+                id="internalNotes"
+                name="internalNotes"
+                rows={3}
+                value={formData.internalNotes}
+                onChange={handleChange}
+                className="w-full px-4 py-3 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-950 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/10 resize-none"
+                placeholder="Notas exclusivas para técnicos (ej. estado de cartuchos, cables dejados, claves...)"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Diagnostic / Problem Card with Interactive Issue Chips */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center font-bold">
-                <Wrench className="w-3.5 h-3.5" />
-              </div>
-              <h2 className="text-xs sm:text-sm font-bold text-slate-900">3. Falla y Diagnóstico Inicial</h2>
-            </div>
-            <span className="text-[10px] text-slate-400">Toca para agregar rápido</span>
-          </div>
-
-          {/* Interactive Common Problem Chips */}
-          <div className="flex flex-wrap gap-1.5">
-            {COMMON_PROBLEMS.map(prob => {
-              const isSelected = formData.printerProblem.includes(prob);
-              return (
-                <button
-                  key={prob}
-                  type="button"
-                  onClick={() => handleAddProblemTag(prob)}
-                  className={`text-[10px] sm:text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
-                    isSelected
-                      ? 'bg-amber-50 text-amber-900 border-amber-300 font-bold shadow-2xs'
-                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  <Tag className="w-2.5 h-2.5 opacity-60" />
-                  <span>{prob}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div>
-            <textarea
-              id="printerProblem"
-              name="printerProblem"
-              required
-              rows={2}
-              value={formData.printerProblem}
-              onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none"
-              placeholder="Describe detalladamente la falla o motivo del ingreso..."
-            />
-          </div>
+        {/* Bottom Form Actions */}
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+          >
+            Cancelar
+          </button>
+          
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="btn-tactile px-8 py-3 bg-slate-950 hover:bg-slate-800 disabled:bg-slate-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+          >
+            {isSaving ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 text-emerald-400" />
+            )}
+            <span>{isSaving ? 'Guardando Registro...' : 'Guardar y Generar Orden de Servicio'}</span>
+          </button>
         </div>
 
       </form>
-    </motion.div>
+    </div>
   );
 }

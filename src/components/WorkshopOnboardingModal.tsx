@@ -124,20 +124,20 @@ export function WorkshopOnboardingModal({
       <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto text-slate-100 flex flex-col max-h-[92vh]">
         
         {/* Top Header Banner */}
-        <div className="relative px-6 pt-6 pb-5 border-b border-slate-800/80 bg-gradient-to-r from-blue-900/40 via-slate-900 to-indigo-900/30">
+        <div className="relative px-6 pt-6 pb-5 border-b border-slate-800 bg-[#0E1424]">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-inner shrink-0">
-                <Sparkles className="w-6 h-6 text-blue-400 animate-pulse" />
+              <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
+                <Printer className="w-6 h-6 text-blue-400" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    {isInitialSetup ? '¡Bienvenido a tu Taller!' : 'Configuración de Identidad'}
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    {isInitialSetup ? 'Configuración Inicial del Taller' : 'Configuración de Identidad'}
                   </h2>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-                  Personaliza el nombre y datos de contacto que aparecerán en tus notas y tickets de entrega.
+                  Personaliza el nombre, logotipo y datos que aparecerán impresos en tus órdenes de servicio y notas de entrega.
                 </p>
               </div>
             </div>
