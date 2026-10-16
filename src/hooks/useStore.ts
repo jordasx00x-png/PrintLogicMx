@@ -23,34 +23,40 @@ export function useStore(isAuthenticated: boolean = false) {
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  // Dynamically link clients to check-ins so they are always in sync
+  // Dynamically link clients to check-ins ONLY when an explicit clientId is present
   const checkIns = rawCheckIns.map(checkIn => {
-    const linkedClient = checkIn.clientId 
-      ? clients.find(c => c.id === checkIn.clientId)
-      : clients.find(c => 
-          (c.email && c.email === checkIn.client?.email) || 
-          (c.phone && c.phone === checkIn.client?.phone)
-        );
-        
-    return {
-      ...checkIn,
-      client: linkedClient || checkIn.client
-    };
+    if (checkIn.clientId) {
+      const linkedClient = clients.find(c => c.id && c.id === checkIn.clientId);
+      if (linkedClient) {
+        return {
+          ...checkIn,
+          client: {
+            ...checkIn.client,
+            ...linkedClient,
+            id: linkedClient.id
+          }
+        };
+      }
+    }
+    return checkIn;
   });
 
-  // Dynamically link clients to sales
+  // Dynamically link clients to sales ONLY when an explicit clientId is present
   const sales = rawSales.map(sale => {
-    const linkedClient = sale.clientId 
-      ? clients.find(c => c.id === sale.clientId)
-      : clients.find(c => 
-          (c.email && c.email === sale.client?.email) || 
-          (c.phone && c.phone === sale.client?.phone)
-        );
-        
-    return {
-      ...sale,
-      client: linkedClient || sale.client
-    };
+    if (sale.clientId) {
+      const linkedClient = clients.find(c => c.id && c.id === sale.clientId);
+      if (linkedClient) {
+        return {
+          ...sale,
+          client: {
+            ...sale.client,
+            ...linkedClient,
+            id: linkedClient.id
+          }
+        };
+      }
+    }
+    return sale;
   });
 
   // 1. Initial REST fetch & seed to Firestore
@@ -136,17 +142,29 @@ export function useStore(isAuthenticated: boolean = false) {
   };
 
   const updateClientData = async (id: string, client: Client) => {
-    setClients(prev => prev.map(c => c.id === id ? client : c));
+    const cleanClient: Client = { ...client, id };
+    setClients(prev => prev.map(c => c.id === id ? cleanClient : c));
+
+    // Also synchronize check-ins that specifically reference this client
+    setRawCheckIns(prev => prev.map(c => {
+      if (c.clientId === id) {
+        return {
+          ...c,
+          client: { ...c.client, ...cleanClient, id }
+        };
+      }
+      return c;
+    }));
 
     // Local DB
     fetch(`/api/clients/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(client),
+      body: JSON.stringify(cleanClient),
     }).catch(e => console.error('Error updating client in local DB:', e));
 
     // Firestore Sync
-    await saveClientToFirestore(client);
+    await saveClientToFirestore(cleanClient);
   };
 
   const deleteClient = async (id: string) => {
@@ -368,13 +386,14 @@ export function useStore(isAuthenticated: boolean = false) {
   };
 
   const updateClient = async (id: string, client: CheckIn['client']) => {
-    const checkInToUpdate = checkIns.find(c => c.id === id);
+    const checkInToUpdate = rawCheckIns.find(c => c.id === id) || checkIns.find(c => c.id === id);
     if (!checkInToUpdate) return;
 
+    const newClientId = client.id !== undefined ? client.id : checkInToUpdate.clientId;
     const updatedCheckIn: CheckIn = { 
       ...checkInToUpdate, 
-      client,
-      clientId: client.id || checkInToUpdate.clientId 
+      client: { ...client, id: newClientId },
+      clientId: newClientId 
     };
 
     setRawCheckIns(prev => prev.map(c => c.id === id ? updatedCheckIn : c));

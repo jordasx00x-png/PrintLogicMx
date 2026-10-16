@@ -45,7 +45,12 @@ export function subscribeCheckIns(onUpdate: (data: CheckIn[]) => void) {
   return onSnapshot(
     checkinsCol,
     (snapshot) => {
-      const list = snapshot.docs.map(doc => doc.data() as CheckIn);
+      const list = snapshot.docs
+        .filter(doc => doc.id !== 'undefined')
+        .map(doc => {
+          const data = doc.data() as CheckIn;
+          return { ...data, id: data.id || doc.id };
+        });
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       onUpdate(list);
     },
@@ -57,7 +62,12 @@ export function subscribeProducts(onUpdate: (data: Product[]) => void) {
   return onSnapshot(
     productsCol,
     (snapshot) => {
-      const list = snapshot.docs.map(doc => doc.data() as Product);
+      const list = snapshot.docs
+        .filter(doc => doc.id !== 'undefined')
+        .map(doc => {
+          const data = doc.data() as Product;
+          return { ...data, id: data.id || doc.id };
+        });
       onUpdate(list);
     },
     (error) => handleFirestoreError(error, OperationType.GET, 'products')
@@ -68,7 +78,12 @@ export function subscribeClients(onUpdate: (data: Client[]) => void) {
   return onSnapshot(
     clientsCol,
     (snapshot) => {
-      const list = snapshot.docs.map(doc => doc.data() as Client);
+      const list = snapshot.docs
+        .filter(doc => doc.id !== 'undefined')
+        .map(doc => {
+          const data = doc.data() as Client;
+          return { ...data, id: data.id || doc.id };
+        });
       onUpdate(list);
     },
     (error) => handleFirestoreError(error, OperationType.GET, 'clients')
@@ -79,7 +94,12 @@ export function subscribeSales(onUpdate: (data: Sale[]) => void) {
   return onSnapshot(
     salesCol,
     (snapshot) => {
-      const list = snapshot.docs.map(doc => doc.data() as Sale);
+      const list = snapshot.docs
+        .filter(doc => doc.id !== 'undefined')
+        .map(doc => {
+          const data = doc.data() as Sale;
+          return { ...data, id: data.id || doc.id };
+        });
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       onUpdate(list);
     },
@@ -154,10 +174,12 @@ export async function clearAllProductsFromFirestore() {
 
 // Clients
 export async function saveClientToFirestore(client: Client) {
-  const path = `clients/${client.id}`;
+  const safeId = client.id || Math.random().toString(36).substring(2, 15);
+  const clientWithId = { ...client, id: safeId };
+  const path = `clients/${safeId}`;
   try {
-    const cleanData = JSON.parse(JSON.stringify(client));
-    await setDoc(doc(db, 'clients', client.id), cleanData);
+    const cleanData = JSON.parse(JSON.stringify(clientWithId));
+    await setDoc(doc(db, 'clients', safeId), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

@@ -18,12 +18,20 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
 
   // Merge registered clients with check-in history
+  const registeredIds = new Set(clients.map(c => c.id).filter(Boolean));
+  const registeredEmails = new Set(clients.map(c => c.email?.trim().toLowerCase()).filter(Boolean));
+  const registeredPhones = new Set(clients.map(c => c.phone?.trim()).filter(Boolean));
+
   const clientsWithStats = clients.map(client => {
-    const clientCheckIns = checkIns.filter(c => 
-      (c.client.id && c.client.id === client.id) ||
-      (c.client.email && c.client.email === client.email) || 
-      (c.client.phone && c.client.phone === client.phone)
-    );
+    const clientPhone = client.phone?.trim();
+    const clientEmail = client.email?.trim().toLowerCase();
+
+    const clientCheckIns = checkIns.filter(c => {
+      if (client.id && (c.clientId === client.id || c.client?.id === client.id)) return true;
+      if (clientPhone && clientPhone.length >= 7 && c.client?.phone?.trim() === clientPhone) return true;
+      if (clientEmail && clientEmail.includes('@') && c.client?.email?.trim().toLowerCase() === clientEmail) return true;
+      return false;
+    });
     
     const lastCheckIn = clientCheckIns.length > 0 
       ? clientCheckIns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
@@ -37,21 +45,18 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
   });
 
   // Also include clients from check-ins that are NOT in the registered list (legacy support)
-  const registeredEmails = new Set(clients.map(c => c.email).filter(Boolean));
-  const registeredPhones = new Set(clients.map(c => c.phone).filter(Boolean));
-
   const unregisteredClientsMap = new Map<string, Client & { checkInCount: number, lastCheckIn: string }>();
 
   checkIns.forEach(checkIn => {
-    const email = checkIn.client.email;
-    const phone = checkIn.client.phone;
+    const email = checkIn.client?.email?.trim().toLowerCase();
+    const phone = checkIn.client?.phone?.trim();
+    const cId = checkIn.clientId || checkIn.client?.id;
     
-    if ((email && registeredEmails.has(email)) || (phone && registeredPhones.has(phone))) {
-      return; // Already registered
-    }
+    if (cId && registeredIds.has(cId)) return;
+    if (email && email.includes('@') && registeredEmails.has(email)) return;
+    if (phone && phone.length >= 7 && registeredPhones.has(phone)) return;
 
-    const key = email || phone;
-    if (!key) return;
+    const key = cId || (phone && phone.length >= 7 ? phone : null) || (email && email.includes('@') ? email : null) || `unreg_${checkIn.client?.name}_${checkIn.id}`;
 
     if (unregisteredClientsMap.has(key)) {
       const existing = unregisteredClientsMap.get(key)!;
@@ -62,6 +67,7 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
     } else {
       unregisteredClientsMap.set(key, {
         ...checkIn.client,
+        id: cId || undefined,
         checkInCount: 1,
         lastCheckIn: checkIn.createdAt
       });
@@ -88,11 +94,13 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
     
+    const clientId = editingClient?.id || Math.random().toString(36).substring(2, 15);
     const clientData: Client = {
-      name: formData.get('name') as string,
-      email: formData.get('email') as string,
-      phone: formData.get('phone') as string,
-      address: formData.get('address') as string,
+      id: clientId,
+      name: (formData.get('name') as string).trim(),
+      email: (formData.get('email') as string).trim(),
+      phone: (formData.get('phone') as string).trim(),
+      address: (formData.get('address') as string).trim(),
     };
 
     if (editingClient && editingClient.id) {
@@ -284,7 +292,7 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
                 {editingClient ? 'Actualiza la información del cliente.' : 'Registra un nuevo cliente en el sistema.'}
               </p>
 
-              <form onSubmit={handleSaveClient} className="space-y-6">
+              <form key={editingClient?.id || 'new_client_form'} onSubmit={handleSaveClient} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Nombre Completo *</label>
                   <input

@@ -102,19 +102,24 @@ export default function App() {
     try {
       const cleanEmail = checkIn.client.email?.trim().toLowerCase();
       const cleanPhone = checkIn.client.phone?.trim();
-      const cleanName = checkIn.client.name?.trim().toLowerCase();
       
-      // Find existing client safely without false matches on empty strings
-      const existingClient = clients.find(c => {
-        if (cleanEmail && c.email && c.email.trim().toLowerCase() === cleanEmail) return true;
-        if (cleanPhone && c.phone && c.phone.trim() === cleanPhone) return true;
-        if (cleanName && c.name && c.name.trim().toLowerCase() === cleanName) return true;
-        return false;
-      });
+      // Match existing client ONLY if:
+      // 1. Explicit ID is provided (e.g., selected from autocomplete)
+      // 2. Matching non-empty phone (at least 7 digits)
+      // 3. Matching non-empty email
+      const existingClient = checkIn.client.id 
+        ? clients.find(c => c.id && c.id === checkIn.client.id)
+        : clients.find(c => {
+            if (cleanPhone && cleanPhone.length >= 7 && c.phone && c.phone.trim() === cleanPhone) return true;
+            if (cleanEmail && cleanEmail.includes('@') && c.email && c.email.trim().toLowerCase() === cleanEmail) return true;
+            return false;
+          });
 
       if (!existingClient) {
         try {
+          const newClientId = checkIn.client.id || Math.random().toString(36).substring(2, 15);
           const newClientData = {
+            id: newClientId,
             name: checkIn.client.name?.trim() || 'Cliente Sin Nombre',
             phone: checkIn.client.phone?.trim() || '',
             email: checkIn.client.email?.trim() || '',
@@ -131,19 +136,19 @@ export default function App() {
         checkIn.client.id = existingClient.id;
         checkIn.clientId = existingClient.id;
         
-        const hasChanges = 
-          existingClient.name !== checkIn.client.name ||
-          existingClient.address !== checkIn.client.address ||
-          existingClient.phone !== checkIn.client.phone ||
-          existingClient.email !== checkIn.client.email;
+        // Enrich existing client if new check-in provides missing contact info
+        const needsUpdate = 
+          (!existingClient.phone && cleanPhone) ||
+          (!existingClient.email && cleanEmail) ||
+          (!existingClient.address && checkIn.client.address?.trim());
           
-        if (hasChanges) {
+        if (needsUpdate) {
           await updateClientData(existingClient.id, { 
             ...existingClient, 
-            name: checkIn.client.name || existingClient.name,
-            phone: checkIn.client.phone || existingClient.phone,
-            email: checkIn.client.email || existingClient.email,
-            address: checkIn.client.address || existingClient.address,
+            phone: existingClient.phone || checkIn.client.phone || '',
+            email: existingClient.email || checkIn.client.email || '',
+            address: existingClient.address || checkIn.client.address || '',
+            id: existingClient.id
           });
         }
       }
@@ -216,28 +221,75 @@ export default function App() {
 
   const handleUpdateClient = async (id: string, client: any) => {
     try {
-      await updateClient(id, client);
-      
-      const checkIn = checkIns.find(c => c.id === id);
-      
-      // Also update the client in the clients table if it exists
-      const existingClient = checkIn?.clientId 
-        ? clients.find(c => c.id === checkIn.clientId)
-        : clients.find(c => 
-            (c.email && c.email === client.email) || 
-            (c.phone && c.phone === client.phone)
-          );
-      
-      if (existingClient && existingClient.id) {
-        await updateClientData(existingClient.id, { ...existingClient, ...client });
+      const currentCheckIn = checkIns.find(c => c.id === id);
+      const currentClientId = currentCheckIn?.clientId || currentCheckIn?.client?.id;
+      const currentName = (currentCheckIn?.client?.name || '').trim().toLowerCase();
+      const newName = (client?.name || '').trim().toLowerCase();
+      const isNameDifferent = Boolean(currentName && newName && currentName !== newName);
+
+      // Check if other check-ins share the current client ID
+      const otherCheckInsWithSameClient = currentClientId 
+        ? checkIns.filter(c => c.id !== id && (c.clientId === currentClientId || c.client?.id === currentClientId))
+        : [];
+
+      if (isNameDifferent && otherCheckInsWithSameClient.length > 0) {
+        // The user is re-assigning THIS check-in to a different client!
+        // We MUST NOT overwrite the other check-ins' client record!
+        const cleanPhone = client.phone?.trim();
+        const cleanEmail = client.email?.trim().toLowerCase();
+        
+        // Find if a client with this phone or email already exists in the directory
+        const existingTargetClient = clients.find(c => 
+          (cleanPhone && cleanPhone.length >= 7 && c.phone && c.phone.trim() === cleanPhone) ||
+          (cleanEmail && cleanEmail.includes('@') && c.email && c.email.trim().toLowerCase() === cleanEmail)
+        );
+
+        let targetClientId: string;
+        if (existingTargetClient && existingTargetClient.id) {
+          targetClientId = existingTargetClient.id;
+          await updateClientData(targetClientId, { ...existingTargetClient, ...client, id: targetClientId });
+        } else {
+          const newClient = await addClient({
+            ...client,
+            id: Math.random().toString(36).substring(2, 15)
+          });
+          targetClientId = newClient.id;
+        }
+
+        // Link only this check-in to the new client
+        await updateClient(id, { ...client, id: targetClientId });
       } else {
-        const newClient = await addClient(client);
-        // Link the new client to the check-in
-        await updateClient(id, { ...client, id: newClient.id });
+        // Either only this check-in has this client, or only contact info was updated
+        let targetClientId = currentClientId;
+
+        if (targetClientId) {
+          await updateClientData(targetClientId, { ...client, id: targetClientId });
+          await updateClient(id, { ...client, id: targetClientId });
+        } else {
+          const cleanPhone = client.phone?.trim();
+          const cleanEmail = client.email?.trim().toLowerCase();
+          const existingClient = clients.find(c => 
+            (cleanPhone && cleanPhone.length >= 7 && c.phone && c.phone.trim() === cleanPhone) ||
+            (cleanEmail && cleanEmail.includes('@') && c.email && c.email.trim().toLowerCase() === cleanEmail)
+          );
+
+          if (existingClient && existingClient.id) {
+            targetClientId = existingClient.id;
+            await updateClientData(targetClientId, { ...existingClient, ...client, id: targetClientId });
+          } else {
+            const newClient = await addClient({
+              ...client,
+              id: Math.random().toString(36).substring(2, 15)
+            });
+            targetClientId = newClient.id;
+          }
+          await updateClient(id, { ...client, id: targetClientId });
+        }
       }
       
-      addToast('Cliente actualizado', 'success');
+      addToast('Cliente actualizado correctamente', 'success');
     } catch (error) {
+      console.error('Error updating client in App.tsx:', error);
       addToast('Error al actualizar cliente', 'error');
     }
   };
@@ -302,8 +354,9 @@ export default function App() {
 
   const handleUpdateClientData = async (id: string, client: any) => {
     try {
-      await updateClientData(id, client);
-      addToast('Cliente actualizado', 'success');
+      const cleanClient = { ...client, id };
+      await updateClientData(id, cleanClient);
+      addToast('Cliente actualizado en el directorio', 'success');
     } catch (error) {
       addToast('Error al actualizar cliente', 'error');
     }
@@ -322,35 +375,47 @@ export default function App() {
     setIsSaving(true);
     try {
       // Auto-register client if not exists
-      const clientEmail = sale.client.email;
-      const clientPhone = sale.client.phone;
+      const clientEmail = sale.client.email?.trim().toLowerCase();
+      const clientPhone = sale.client.phone?.trim();
       
-      const existingClient = clients.find(c => 
-        (c.email && c.email === clientEmail) || 
-        (c.phone && c.phone === clientPhone)
-      );
+      const existingClient = sale.client.id 
+        ? clients.find(c => c.id && c.id === sale.client.id)
+        : clients.find(c => 
+            (clientEmail && clientEmail.includes('@') && c.email && c.email.trim().toLowerCase() === clientEmail) || 
+            (clientPhone && clientPhone.length >= 7 && c.phone && c.phone.trim() === clientPhone)
+          );
 
       if (!existingClient) {
         try {
-          const newClient = await addClient(sale.client);
+          const newClientId = sale.client.id || Math.random().toString(36).substring(2, 15);
+          const newClient = await addClient({
+            ...sale.client,
+            id: newClientId
+          });
           sale.client.id = newClient.id;
           sale.clientId = newClient.id;
-          addToast('Cliente registrado automáticamente', 'success');
+          addToast('Cliente registrado en el directorio', 'success');
         } catch (e) {
           console.error('Error auto-registering client', e);
         }
       } else {
         sale.client.id = existingClient.id;
         sale.clientId = existingClient.id;
-        // Update existing client with potentially new info
-        const hasChanges = 
-          existingClient.name !== sale.client.name ||
-          existingClient.address !== sale.client.address ||
-          existingClient.phone !== sale.client.phone ||
-          existingClient.email !== sale.client.email;
+        
+        // Enrich existing client if new sale provides missing contact info
+        const needsUpdate = 
+          (!existingClient.phone && clientPhone) ||
+          (!existingClient.email && clientEmail) ||
+          (!existingClient.address && sale.client.address?.trim());
           
-        if (hasChanges) {
-          await updateClientData(existingClient.id, { ...existingClient, ...sale.client });
+        if (needsUpdate) {
+          await updateClientData(existingClient.id, { 
+            ...existingClient, 
+            phone: existingClient.phone || sale.client.phone || '',
+            email: existingClient.email || sale.client.email || '',
+            address: existingClient.address || sale.client.address || '',
+            id: existingClient.id
+          });
         }
       }
 
