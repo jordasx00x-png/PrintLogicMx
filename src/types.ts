@@ -18,6 +18,7 @@ export interface Printer {
   advanceDeposit?: number;
   assignedTechnician?: string;
   priority?: 'Normal' | 'Urgente / Express' | 'Garantía';
+  serialPhoto?: string;
 }
 
 export interface QuoteItem {

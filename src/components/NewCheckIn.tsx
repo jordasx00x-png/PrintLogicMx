@@ -17,7 +17,15 @@ import {
   DollarSign,
   UserCheck,
   AlertCircle,
-  FileText
+  Camera,
+  ScanLine,
+  RefreshCw,
+  Image as ImageIcon,
+  Sparkles,
+  Eye,
+  Trash2,
+  FlipHorizontal,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -31,11 +39,6 @@ interface NewCheckInProps {
 
 const POPULAR_BRANDS = ['Epson', 'HP', 'Canon', 'Brother', 'Kyocera', 'Samsung', 'Zebra', 'Ricoh'];
 const TECHNICIANS = ['Técnico en Turno', 'Carlos Martínez', 'Roberto Gómez', 'Ing. Alejandro Ramírez', 'Miguel Ángel Torres'];
-const PRIORITIES = [
-  { id: 'Normal', label: 'Normal (3-5 días)', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-  { id: 'Urgente / Express', label: 'Urgente / Express (24 hrs)', color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  { id: 'Garantía', label: 'Garantía de Taller', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-];
 
 const COMMON_PROBLEMS = [
   'No enciende / Corto eléctrico',
@@ -63,6 +66,19 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     priority: 'Normal' as 'Normal' | 'Urgente / Express' | 'Garantía',
     internalNotes: '',
   });
+
+  // Photo & AI Serial Scanning States
+  const [serialPhoto, setSerialPhoto] = useState<string | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -138,6 +154,185 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }, [latestSerialCheckIn]);
 
+  // Camera Management
+  const startCamera = async (facing: 'environment' | 'user' = cameraFacing) => {
+    stopCamera();
+    setScanError(null);
+    setScanMessage(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: facing },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('Direct camera stream error:', err);
+      setScanError('No se pudo acceder a la cámara en vivo. Puedes subir una foto desde tus archivos o galería.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const handleOpenScanner = () => {
+    setIsCameraOpen(true);
+    setScanError(null);
+    setScanMessage(null);
+    startCamera(cameraFacing);
+  };
+
+  const handleCloseScanner = () => {
+    stopCamera();
+    setIsCameraOpen(false);
+    setIsScanning(false);
+    setScanError(null);
+    setScanMessage(null);
+  };
+
+  const toggleCameraFacing = () => {
+    const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(nextFacing);
+    startCamera(nextFacing);
+  };
+
+  // Process and analyze image with AI / Barcode
+  const processImageForSerial = async (base64Image: string) => {
+    setIsScanning(true);
+    setScanError(null);
+    setScanMessage('Analizando fotografía con IA y extrayendo número de serie...');
+
+    try {
+      // 1. Try Client-side BarcodeDetector if supported
+      let detectedBarcodeText = '';
+      if ('BarcodeDetector' in window) {
+        try {
+          const barcodeDetector = new (window as any).BarcodeDetector({
+            formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'data_matrix']
+          });
+          const img = new Image();
+          img.src = base64Image;
+          await new Promise(r => { img.onload = r; });
+          const barcodes = await barcodeDetector.detect(img);
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            detectedBarcodeText = barcodes[0].rawValue.trim();
+            console.log('Client-side barcode detected:', detectedBarcodeText);
+          }
+        } catch (be) {
+          console.warn('BarcodeDetector error:', be);
+        }
+      }
+
+      // 2. Call server-side Gemini OCR endpoint
+      const response = await fetch('/api/scan-serial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64Image,
+          mimeType: 'image/jpeg'
+        })
+      });
+
+      const data = await response.json();
+
+      let extractedSerial = '';
+      let extractedBrand = '';
+      let extractedModel = '';
+
+      if (data.success && data.serialNumber) {
+        extractedSerial = data.serialNumber;
+        extractedBrand = data.brand || '';
+        extractedModel = data.model || '';
+      } else if (detectedBarcodeText) {
+        extractedSerial = detectedBarcodeText;
+      }
+
+      if (!extractedSerial) {
+        throw new Error(data.error || 'No se pudo identificar el número de serie en la fotografía. Intenta enfocar más cerca la etiqueta blanca o código de barras.');
+      }
+
+      // Automatically fill the serial number!
+      setFormData(prev => ({
+        ...prev,
+        printerSerialNumber: extractedSerial,
+        printerBrand: (!prev.printerBrand && extractedBrand) ? extractedBrand : prev.printerBrand,
+        printerModel: (!prev.printerModel && extractedModel) ? extractedModel : prev.printerModel,
+      }));
+
+      // Automatically save the serial photo!
+      setSerialPhoto(base64Image);
+
+      setScanMessage(`¡Número de serie guardado en automático: ${extractedSerial}!`);
+      
+      // Auto close camera after brief confirmation
+      setTimeout(() => {
+        handleCloseScanner();
+      }, 1200);
+
+    } catch (err: any) {
+      console.error('Scan processing error:', err);
+      setScanError(err.message || 'Error al procesar la fotografía.');
+      setIsScanning(false);
+    }
+  };
+
+  // Capture frame from active video
+  const handleCaptureSnapshot = () => {
+    if (!videoRef.current) return;
+    
+    try {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.92);
+      
+      // Freeze stream while processing
+      stopCamera();
+      processImageForSerial(base64);
+    } catch (e: any) {
+      console.error('Snapshot capture error:', e);
+      setScanError('Error al capturar la imagen de la cámara.');
+    }
+  };
+
+  // Handle file capture (e.g. from gallery or native camera picker)
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      if (isCameraOpen) {
+        stopCamera();
+      } else {
+        setIsCameraOpen(true);
+      }
+      processImageForSerial(base64);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   const selectClient = (client: Client) => {
     setSelectedClient(client);
     setFormData(prev => ({
@@ -204,6 +399,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
         assignedTechnician: formData.assignedTechnician,
         priority: formData.priority,
         advanceDeposit: formData.advanceDeposit ? parseFloat(formData.advanceDeposit) : undefined,
+        serialPhoto: serialPhoto || undefined,
       },
       internalNotes: formData.internalNotes.trim() || undefined,
     });
@@ -213,6 +409,16 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     <div className="w-full max-w-6xl mx-auto space-y-6 pb-16 font-sans">
       <form onSubmit={handleSubmit} className="space-y-6">
         
+        {/* Hidden File Picker for native camera capture */}
+        <input 
+          ref={fileInputRef}
+          type="file" 
+          accept="image/*" 
+          capture="environment" 
+          className="hidden" 
+          onChange={handleFileInputChange}
+        />
+
         {/* Professional Header Bar */}
         <div className="bg-slate-900 text-white rounded-2xl px-6 py-5 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-800">
           <div className="flex items-center gap-4">
@@ -515,44 +721,128 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1.5">
+                {/* Número de Serie con Botón de Foto y Escaneo Automático */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
                     <label htmlFor="printerSerialNumber" className="block text-xs font-bold text-slate-700">
                       Número de Serie / S/N
                     </label>
-                    <div className="relative">
-                      <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        id="printerSerialNumber"
-                        name="printerSerialNumber"
-                        value={formData.printerSerialNumber}
-                        onChange={handleChange}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 uppercase"
-                        placeholder="Ej. X7Y908"
-                      />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleOpenScanner}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 active:scale-95 px-2.5 py-1 rounded-lg border border-blue-200 transition-all cursor-pointer shadow-2xs"
+                        title="Tomar foto de la etiqueta o código de barras para guardar la serie en automático"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Tomar Foto / Escanear</span>
+                      </button>
                     </div>
                   </div>
 
-                  {/* Técnico Asignado */}
-                  <div className="space-y-1.5">
-                    <label htmlFor="assignedTechnician" className="block text-xs font-bold text-slate-700">
-                      Técnico Responsable
-                    </label>
-                    <div className="relative">
-                      <UserCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        id="assignedTechnician"
-                        name="assignedTechnician"
-                        value={formData.assignedTechnician}
-                        onChange={handleChange}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer"
+                  <div className="relative">
+                    <Barcode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      id="printerSerialNumber"
+                      name="printerSerialNumber"
+                      value={formData.printerSerialNumber}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-28 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 uppercase"
+                      placeholder="Ej. X7Y9081234"
+                    />
+
+                    {/* Quick Button inside input */}
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                        title="Subir imagen desde galería o archivos"
                       >
-                        {TECHNICIANS.map(tech => (
-                          <option key={tech} value={tech}>{tech}</option>
-                        ))}
-                      </select>
+                        <ImageIcon className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenScanner}
+                        className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        title="Abrir cámara y escanear"
+                      >
+                        <ScanLine className="w-3 h-3 text-blue-400" />
+                        <span>Foto</span>
+                      </button>
                     </div>
+                  </div>
+
+                  {/* Attached Serial Photo Preview Card */}
+                  {serialPhoto && (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img 
+                          src={serialPhoto} 
+                          alt="Foto de la etiqueta" 
+                          className="w-10 h-10 object-cover rounded-lg border border-emerald-300 shrink-0 cursor-pointer hover:opacity-90"
+                          onClick={() => setShowPhotoPreview(true)}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-emerald-900 flex items-center gap-1 truncate">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            Foto de etiqueta adjunta
+                          </p>
+                          <p className="text-[10px] text-emerald-700 font-mono truncate">
+                            Serie: {formData.printerSerialNumber || 'Detectada'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setShowPhotoPreview(true)}
+                          className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-md transition-colors"
+                          title="Ver foto ampliada"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOpenScanner}
+                          className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-100 rounded-md transition-colors"
+                          title="Volver a tomar foto"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSerialPhoto(null)}
+                          className="p-1 text-emerald-700 hover:text-rose-600 hover:bg-emerald-100 rounded-md transition-colors"
+                          title="Quitar foto"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Técnico Asignado */}
+                <div className="space-y-1.5">
+                  <label htmlFor="assignedTechnician" className="block text-xs font-bold text-slate-700">
+                    Técnico Responsable
+                  </label>
+                  <div className="relative">
+                    <UserCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <select
+                      id="assignedTechnician"
+                      name="assignedTechnician"
+                      value={formData.assignedTechnician}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer"
+                    >
+                      {TECHNICIANS.map(tech => (
+                        <option key={tech} value={tech}>{tech}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -593,8 +883,11 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span className="font-medium">Validación de número de serie</span>
-              <span className="font-mono text-[11px] text-slate-400">Hardware ID</span>
+              <span className="font-medium flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                OCR Inteligente con detección automática
+              </span>
+              <span className="font-mono text-[11px] text-slate-400">Gemini 3.8</span>
             </div>
           </div>
 
@@ -734,6 +1027,190 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
         </div>
 
       </form>
+
+      {/* Interactive Camera & OCR Modal */}
+      <AnimatePresence>
+        {isCameraOpen && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col text-white"
+            >
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Escanear Serie de Impresora</h3>
+                    <p className="text-[10px] text-slate-400">Captura la etiqueta o código de barras del equipo</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCloseScanner}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Viewfinder Area */}
+              <div className="relative aspect-4/3 sm:aspect-16/10 bg-black flex items-center justify-center overflow-hidden">
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Laser Overlay Scanner Frame */}
+                {!isScanning && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
+                    <div className="w-4/5 h-2/3 border-2 border-blue-400/80 rounded-2xl relative shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                      {/* Corner Accents */}
+                      <div className="absolute -top-1 -left-1 w-4 h-4 border-t-3 border-l-3 border-blue-400" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 border-t-3 border-r-3 border-blue-400" />
+                      <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-3 border-l-3 border-blue-400" />
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-3 border-r-3 border-blue-400" />
+
+                      {/* Moving laser scan line */}
+                      <motion.div
+                        animate={{ top: ['5%', '90%', '5%'] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute left-2 right-2 h-0.5 bg-blue-400 shadow-[0_0_8px_#60a5fa]"
+                      />
+
+                      <div className="absolute inset-x-0 bottom-3 text-center">
+                        <span className="text-[10px] font-bold bg-slate-900/80 text-blue-300 px-3 py-1 rounded-full border border-blue-400/30">
+                          Enfoca la etiqueta con S/N o código de barras
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Processing Overlay */}
+                {isScanning && (
+                  <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center animate-pulse">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">Extrayendo Número de Serie...</p>
+                      <p className="text-xs text-slate-400 mt-1">{scanMessage || 'Analizando caracteres y códigos con IA'}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success Message Banner */}
+                {scanMessage && !isScanning && (
+                  <div className="absolute inset-x-4 top-4 bg-emerald-500 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{scanMessage}</span>
+                  </div>
+                )}
+
+                {/* Error Banner */}
+                {scanError && !isScanning && (
+                  <div className="absolute inset-x-4 bottom-4 bg-rose-600/90 text-white px-4 py-3 rounded-xl shadow-lg flex items-start gap-2.5 text-xs font-medium">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-white mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-bold">No se pudo leer la serie</p>
+                      <p className="text-[11px] text-rose-100">{scanError}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Controls */}
+              <div className="p-5 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={toggleCameraFacing}
+                  disabled={isScanning}
+                  className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
+                  title="Cambiar cámara frontal / trasera"
+                >
+                  <FlipHorizontal className="w-5 h-5" />
+                </button>
+
+                {/* Big Shutter Capture Button */}
+                <button
+                  type="button"
+                  disabled={isScanning}
+                  onClick={handleCaptureSnapshot}
+                  className="flex-1 py-3 px-5 bg-blue-600 hover:bg-blue-500 active:scale-98 disabled:bg-slate-800 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-blue-400/30"
+                >
+                  <Camera className="w-5 h-5 text-white" />
+                  <span className="text-xs sm:text-sm">Tomar Foto y Extraer Serie</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isScanning}
+                  className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
+                  title="Elegir foto de la galería"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Photo Preview Modal */}
+      <AnimatePresence>
+        {showPhotoPreview && serialPhoto && (
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl"
+            >
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between text-white">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Foto de Placa / Etiqueta</h3>
+                  <p className="text-xs font-mono text-emerald-400">S/N: {formData.printerSerialNumber || 'Sin serie'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPhotoPreview(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 bg-black flex items-center justify-center max-h-[70vh] overflow-hidden">
+                <img
+                  src={serialPhoto}
+                  alt="Etiqueta del equipo"
+                  className="max-h-[60vh] w-auto object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="p-4 bg-slate-900 border-t border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPhotoPreview(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

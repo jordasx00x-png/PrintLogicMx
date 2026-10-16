@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import webpush from 'web-push';
+import { GoogleGenAI } from '@google/genai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const db = new Database('database.sqlite');
@@ -284,6 +285,107 @@ async function startServer() {
     } catch (error) {
       console.error('Google auth error in server:', error);
       res.status(500).json({ success: false, error: 'Error al procesar inicio de sesión con Google' });
+    }
+  });
+
+  // OCR & Serial Recognition via Gemini 3.8 Flash
+  app.post('/api/scan-serial', async (req, res) => {
+    try {
+      const { imageBase64, mimeType = 'image/jpeg' } = req.body;
+      if (!imageBase64) {
+        return res.status(400).json({ success: false, error: 'No se recibió ninguna imagen para escanear.' });
+      }
+
+      // Remove data URL prefix if present
+      const base64Data = imageBase64.replace(/^data:image\/[a-z0-9-+.]+;base64,/, '');
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.warn('GEMINI_API_KEY no configurado en entorno.');
+        return res.status(500).json({
+          success: false,
+          error: 'Servicio de reconocimiento con IA no configurado en el servidor.'
+        });
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                inlineData: {
+                  mimeType: mimeType || 'image/jpeg',
+                  data: base64Data,
+                },
+              },
+              {
+                text: `Eres un asistente experto para talleres de reparación de impresoras (Epson, HP, Canon, Brother, Kyocera, Zebra, Ricoh, etc.).
+Analiza con máxima atención la fotografía de la etiqueta, placa metálica de especificaciones, código de barras o chasis del equipo.
+Extrae estrictamente los siguientes datos:
+1. "serialNumber": Número de serie exacto (S/N, Serial No, Serie, o texto alfanumérico debajo del código de barras). Limpia cualquier prefijo como "S/N:", "S/N", "SER. NO:", "SERIE:". Devuélvelo en MAYÚSCULAS sin espacios.
+2. "brand": Marca del fabricante si es visible o identificable por logotipo o texto (ej. Epson, HP, Canon, Brother, Samsung, Kyocera, etc.).
+3. "model": Modelo exacto del equipo si es visible (ej. L3150, EcoTank L4260, Smart Tank 515, LaserJet Pro M404, etc.).
+
+Responde ÚNICAMENTE un JSON válido con este formato:
+{
+  "serialNumber": "...",
+  "brand": "...",
+  "model": "..."
+}
+Si algún dato no está visible o no se puede determinar con certeza, devuelve una cadena vacía "". No agregues texto adicional fuera del JSON.`,
+              },
+            ],
+          },
+        ],
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const responseText = response.text?.trim() || '{}';
+      let parsed = { serialNumber: '', brand: '', model: '' };
+      try {
+        parsed = JSON.parse(responseText);
+      } catch (e) {
+        const sMatch = responseText.match(/"serialNumber"\s*:\s*"([^"]+)"/i);
+        const bMatch = responseText.match(/"brand"\s*:\s*"([^"]+)"/i);
+        const mMatch = responseText.match(/"model"\s*:\s*"([^"]+)"/i);
+        parsed = {
+          serialNumber: sMatch ? sMatch[1] : '',
+          brand: bMatch ? bMatch[1] : '',
+          model: mMatch ? mMatch[1] : '',
+        };
+      }
+
+      const cleanSerial = (parsed.serialNumber || '')
+        .replace(/^(S\/N|SN|SERIE|SERIAL NUMBER|SERIAL NO|NO)[:.\s-]*/i, '')
+        .replace(/[\s\r\n]+/g, '')
+        .toUpperCase();
+
+      console.log('Serial scan result:', { cleanSerial, brand: parsed.brand, model: parsed.model });
+
+      if (!cleanSerial && !parsed.model && !parsed.brand) {
+        return res.json({
+          success: false,
+          error: 'No se detectó un número de serie legible en la imagen. Enfoca bien la etiqueta o código de barras e intenta de nuevo.',
+        });
+      }
+
+      res.json({
+        success: true,
+        serialNumber: cleanSerial,
+        brand: (parsed.brand || '').trim(),
+        model: (parsed.model || '').trim(),
+      });
+    } catch (error: any) {
+      console.error('Error en /api/scan-serial:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Ocurrió un error al analizar la fotografía: ' + (error.message || 'Error desconocido'),
+      });
     }
   });
 

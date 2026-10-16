@@ -994,6 +994,30 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
                           {checkIn.printer?.serialNumber || 'Sin Registrar'}
                         </p>
                       </div>
+
+                      {checkIn.printer?.serialPhoto && (
+                        <div className="col-span-2 p-2.5 bg-slate-50/90 rounded-xl border border-slate-200 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={checkIn.printer.serialPhoto}
+                              alt="Foto de la etiqueta"
+                              className="w-10 h-10 object-cover rounded-lg border border-slate-300 shadow-2xs"
+                            />
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-800">Foto de Placa / Serie Adjunta</p>
+                              <p className="text-[9px] text-slate-500 font-mono">Verificada al ingreso</p>
+                            </div>
+                          </div>
+                          <a
+                            href={checkIn.printer.serialPhoto}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 text-[10px] font-bold bg-white text-slate-700 hover:text-slate-900 border border-slate-200 rounded-lg shadow-2xs"
+                          >
+                            Ver Foto
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-3 bg-slate-900 text-slate-100 rounded-xl border border-slate-800 flex flex-col justify-between min-h-[96px]">

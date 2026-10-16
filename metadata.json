@@ -1,5 +1,7 @@
 {
   "name": "PrintFix - Gestión de Impresoras",
   "description": "Sistema para el ingreso de impresoras, gestión de clientes y envío de cotizaciones por WhatsApp.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
