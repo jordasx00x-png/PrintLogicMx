@@ -22,6 +22,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { useSettings } from './hooks/useSettings';
 import { WorkshopOnboardingModal } from './components/WorkshopOnboardingModal';
 import { Sale } from './types';
+import { scrollToTop } from './lib/scrollUtils';
 
 export default function App() {
   const { 
@@ -45,6 +46,12 @@ export default function App() {
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
+
+  // Scroll to top automatically whenever changing views or detail screens
+  React.useEffect(() => {
+    scrollToTop();
+  }, [currentView, selectedCheckInId, selectedSaleId, selectedClientId]);
+
   const { 
     checkIns, 
     sales,
@@ -93,11 +100,13 @@ export default function App() {
     if (view !== 'client-details') {
       setSelectedClientId(null);
     }
+    scrollToTop();
   };
 
   const handleViewDetails = (id: string) => {
     setSelectedCheckInId(id);
     setCurrentView('details');
+    scrollToTop();
   };
 
   const [isSaving, setIsSaving] = useState(false);

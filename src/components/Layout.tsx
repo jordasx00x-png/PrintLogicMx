@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Printer, 
   Users, 
@@ -18,7 +18,8 @@ import {
   Command,
   ArrowRight,
   MoreHorizontal,
-  Bell
+  Bell,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
@@ -26,6 +27,7 @@ import { twMerge } from 'tailwind-merge';
 import { OfflineIndicator } from './OfflineIndicator';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSettings } from '../hooks/useSettings';
+import { scrollToTop } from '../lib/scrollUtils';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -43,6 +45,10 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
   const { permission, requestPermission } = useNotifications();
   const { settings } = useSettings();
 
+  const mainRef = useRef<HTMLElement>(null);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
   const navItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
     { id: 'new', label: 'Nuevo Ingreso', icon: Plus },
@@ -54,15 +60,38 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
     { id: 'settings', label: 'Configuración Taller', icon: Settings },
   ];
 
-  // Mobile bottom tab bar items (thumb-zone natural reach)
-  const mobileBottomTabs = [
-    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
-    { id: 'new', label: 'Nuevo', icon: Plus },
-    { id: 'list', label: 'Ingresos', icon: Printer },
-    { id: 'products', label: 'Catálogo', icon: Package },
+  // Mobile bottom scrollable navigation items (includes all menus, scrollable right-to-left)
+  const mobileNavItems = [
+    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard, matchViews: ['dashboard'] },
+    { id: 'new', label: '+ Ingreso', icon: Plus, highlight: true, matchViews: ['new'] },
+    { id: 'list', label: 'Taller', icon: Printer, matchViews: ['list', 'details'] },
+    { id: 'sales', label: 'Ventas', icon: ShoppingCart, matchViews: ['sales', 'new-sale', 'sale-details'] },
+    { id: 'products', label: 'Refacciones', icon: Package, matchViews: ['products'] },
+    { id: 'clients', label: 'Clientes', icon: Users, matchViews: ['clients', 'client-details'] },
+    { id: 'reports', label: 'Reportes', icon: BarChart3, matchViews: ['reports'] },
+    { id: 'settings', label: 'Ajustes', icon: Settings, matchViews: ['settings'] },
   ];
 
   const currentViewTitle = navItems.find(i => i.id === currentView)?.label || 'Panel de Control';
+
+  // Auto-scroll main container and window to top on view change
+  useEffect(() => {
+    scrollToTop();
+    if (mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  }, [currentView]);
+
+  // Auto-scroll active tab into center view in mobile bottom horizontal dock
+  useEffect(() => {
+    if (activeTabRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest'
+      });
+    }
+  }, [currentView]);
 
   // Global Keyboard Shortcut: Cmd+K or Ctrl+K
   useEffect(() => {
@@ -287,8 +316,8 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
           </div>
         </header>
 
-        {/* Content Area - Extra padding on mobile to never clip behind bottom navigation */}
-        <main className="flex-1 p-3 md:p-6 lg:p-8 pb-28 md:pb-8 overflow-y-auto print:p-0">
+        {/* Content Area - Extra padding on mobile to never clip behind bottom navigation dock */}
+        <main ref={mainRef} className="flex-1 p-3 md:p-6 lg:p-8 pb-32 md:pb-8 overflow-y-auto print:p-0">
           <div className="max-w-7xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
@@ -305,44 +334,73 @@ export function Layout({ children, currentView, onNavigate, onLogout, user }: La
           </div>
         </main>
 
-        {/* Mobile Fixed Bottom Navigation Bar (Thumb Zone) */}
+        {/* Mobile Horizontally Scrollable & Interactive Bottom Navigation Bar */}
         <nav 
-          aria-label="Navegación móvil"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 grid grid-cols-5 items-center px-1 min-h-[60px] pb-[max(env(safe-area-inset-bottom,0px),8px)] pt-1 shadow-lg shadow-slate-900/10 select-none"
+          aria-label="Navegación móvil deslizable"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] select-none pb-[max(env(safe-area-inset-bottom,0px),8px)] pt-1.5"
         >
-          {mobileBottomTabs.map((tab) => {
-            const isActive = currentView === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onNavigate(tab.id)}
-                className={clsx(
-                  "min-h-[48px] flex flex-col items-center justify-center gap-1 transition-all active:scale-90 cursor-pointer select-none",
-                  isActive ? "text-slate-950 font-bold" : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                <div className={clsx("p-1.5 rounded-xl transition-all", isActive ? "bg-slate-900 text-white shadow-xs" : "text-slate-500")}>
-                  <tab.icon className="w-4 h-4" />
-                </div>
-                <span className={clsx("text-[10px] tracking-tight leading-none", isActive ? "font-bold text-slate-900" : "font-medium text-slate-500")}>
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
+          {/* Subtle scroll edge gradient masks */}
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white/95 to-transparent z-10" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white/95 to-transparent z-10" />
 
-          {/* Tab 5: "Más" Button to open drawer */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="min-h-[48px] flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-600 transition-all active:scale-90 cursor-pointer select-none"
+          {/* Horizontally scrollable container with touch momentum */}
+          <div 
+            ref={mobileNavRef}
+            className="flex items-center gap-1.5 overflow-x-auto scroll-smooth px-3 py-1 no-scrollbar touch-pan-x"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
-            <div className="p-1.5 rounded-xl text-slate-500">
-              <MoreHorizontal className="w-4 h-4" />
-            </div>
-            <span className="text-[10px] font-medium text-slate-500 tracking-tight leading-none">
-              Más
-            </span>
-          </button>
+            {mobileNavItems.map((tab) => {
+              const isDirectActive = currentView === tab.id;
+              const isParentActive = tab.matchViews?.includes(currentView);
+              const isActive = isDirectActive || isParentActive;
+
+              return (
+                <button
+                  key={tab.id}
+                  ref={isActive ? activeTabRef : null}
+                  onClick={() => onNavigate(tab.id)}
+                  className={clsx(
+                    "group shrink-0 flex flex-col items-center justify-center min-w-[74px] sm:min-w-[82px] px-3 py-1.5 rounded-2xl transition-all duration-150 cursor-pointer select-none active:scale-95",
+                    isActive
+                      ? "bg-slate-900 text-white shadow-sm ring-1 ring-slate-800"
+                      : "text-slate-500 hover:text-slate-900 hover:bg-slate-100/80"
+                  )}
+                  title={tab.label}
+                >
+                  <div className="relative">
+                    <tab.icon className={clsx(
+                      "w-4 h-4 transition-transform duration-150", 
+                      isActive ? "text-white scale-110" : "text-slate-500 group-hover:text-slate-700"
+                    )} />
+                    {tab.highlight && (
+                      <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                    )}
+                  </div>
+                  <span className={clsx(
+                    "text-[10px] mt-1 whitespace-nowrap tracking-tight leading-tight",
+                    isActive ? "font-bold text-white" : "font-medium text-slate-500 group-hover:text-slate-700"
+                  )}>
+                    {tab.label}
+                  </span>
+                  {isActive && (
+                    <span className="w-1 h-1 rounded-full bg-blue-400 mt-0.5" />
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Quick Search trigger button in the mobile dock */}
+            <button
+              onClick={() => setIsQuickSearchOpen(true)}
+              className="group shrink-0 flex flex-col items-center justify-center min-w-[70px] px-2.5 py-1.5 rounded-2xl transition-all duration-150 cursor-pointer select-none text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95"
+              title="Buscar en PrintFix"
+            >
+              <Search className="w-4 h-4 text-slate-500 group-hover:text-slate-700" />
+              <span className="text-[10px] mt-1 whitespace-nowrap tracking-tight leading-tight font-medium text-slate-500">
+                Buscar
+              </span>
+            </button>
+          </div>
         </nav>
       </div>
 

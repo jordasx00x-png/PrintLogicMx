@@ -5,6 +5,7 @@ import { QuoteSheet } from './QuoteSheet';
 import { QuotePrintable } from './QuotePrintable';
 import { QuoteQRModal } from './QuoteQRModal';
 import { generateQuotePDF } from '../utils/pdfGenerator';
+import { scrollToTop } from '../lib/scrollUtils';
 
 interface CheckInDetailsProps {
   checkIn: CheckIn;
@@ -212,6 +213,15 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], clients 
     setEditPrinterForm(checkIn.printer || { brand: '', model: '', serialNumber: '', problem: '', status: 'Ingresado' });
     setNotes(checkIn.notes || '');
   }, [checkIn]);
+
+  // Ensure view resets to top on mobile when switching to/from quote mode or opening details
+  React.useEffect(() => {
+    scrollToTop();
+  }, [isCreatingQuote, isEditingQuote]);
+
+  React.useEffect(() => {
+    scrollToTop();
+  }, []);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 

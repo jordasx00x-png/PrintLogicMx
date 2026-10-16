@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckIn, Sale, Client } from '../types';
 import { ArrowLeft, User, Printer, Package, DollarSign, Calendar } from 'lucide-react';
+import { scrollToTop } from '../lib/scrollUtils';
 
 interface ClientDetailsProps {
   client: Client;
@@ -10,6 +11,10 @@ interface ClientDetailsProps {
 }
 
 export function ClientDetails({ client, checkIns, sales, onBack }: ClientDetailsProps) {
+  React.useEffect(() => {
+    scrollToTop();
+  }, []);
+
   const clientName = client.name.trim().toLowerCase();
   
   const clientCheckIns = checkIns.filter(c => 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sale, Client } from '../../types';
 import { ArrowLeft, CheckCircle, Clock, FileText, ShoppingCart, XCircle, Printer, Send, Trash2, Download } from 'lucide-react';
 import { SaleSheet } from './SaleSheet';
+import { scrollToTop } from '../../lib/scrollUtils';
 
 interface SaleDetailsProps {
   sale: Sale;
@@ -11,6 +12,10 @@ interface SaleDetailsProps {
 }
 
 export function SaleDetails({ sale, onBack, onUpdateStatus, onDelete }: SaleDetailsProps) {
+  React.useEffect(() => {
+    scrollToTop();
+  }, []);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showSaleSheet, setShowSaleSheet] = useState(false);
 

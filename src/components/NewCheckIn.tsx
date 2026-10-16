@@ -28,6 +28,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { scrollToTop } from '../lib/scrollUtils';
 
 interface NewCheckInProps {
   onSave: (checkIn: Omit<CheckIn, 'id' | 'createdAt'>) => void;
@@ -85,6 +86,10 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
   const [showSuggestions, setShowSuggestions] = useState(false);
   const clientNameInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollToTop();
+  }, []);
 
   // Consolidate unique clients list
   const uniqueClients = useMemo(() => {

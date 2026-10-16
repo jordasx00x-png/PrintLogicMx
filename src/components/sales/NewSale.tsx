@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Sale, Client, Product, SaleItem } from '../../types';
 import { Save, Search, ArrowLeft, Plus, Trash2, User, Phone, Mail, MapPin, UserPlus, CheckCircle2, Percent, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { scrollToTop } from '../../lib/scrollUtils';
 
 interface NewSaleProps {
   onSave: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
@@ -13,6 +14,10 @@ interface NewSaleProps {
 }
 
 export function NewSale({ onSave, onCancel, clients, products, isSaving, onAddProduct }: NewSaleProps) {
+  useEffect(() => {
+    scrollToTop();
+  }, []);
+
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
