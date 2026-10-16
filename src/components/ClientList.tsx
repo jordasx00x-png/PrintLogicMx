@@ -9,9 +9,10 @@ interface ClientListProps {
   onAddClient: (client: Client) => Promise<void>;
   onUpdateClient: (id: string, client: Client) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
+  onViewClient: (clientId: string) => void;
 }
 
-export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onDeleteClient }: ClientListProps) {
+export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onDeleteClient, onViewClient }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -74,10 +75,28 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
     }
   });
 
-  const allClients = [
+  const allClientsRaw = [
     ...clientsWithStats,
     ...Array.from(unregisteredClientsMap.values()).map(c => ({ ...c, isUnregistered: true }))
-  ].sort((a, b) => {
+  ];
+
+  const clientsMap = new Map<string, any>();
+
+  allClientsRaw.forEach(c => {
+    const nameKey = (c.name || 'Sin Nombre').trim().toLowerCase();
+    if (clientsMap.has(nameKey)) {
+      const existing = clientsMap.get(nameKey);
+      existing.checkInCount += c.checkInCount || 0;
+      if (c.lastCheckIn && (!existing.lastCheckIn || new Date(c.lastCheckIn) > new Date(existing.lastCheckIn))) {
+        existing.lastCheckIn = c.lastCheckIn;
+      }
+      // Keep first ID found
+    } else {
+      clientsMap.set(nameKey, { ...c });
+    }
+  });
+
+  const allClients = Array.from(clientsMap.values()).sort((a, b) => {
     const dateA = a.lastCheckIn ? new Date(a.lastCheckIn).getTime() : 0;
     const dateB = b.lastCheckIn ? new Date(b.lastCheckIn).getTime() : 0;
     return dateB - dateA;
@@ -151,7 +170,8 @@ export function ClientList({ checkIns, clients, onAddClient, onUpdateClient, onD
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-8 hover:shadow-xl hover:-translate-y-1 transition-all group relative"
+            className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-8 hover:shadow-xl hover:-translate-y-1 transition-all group relative cursor-pointer"
+            onClick={() => client.id && onViewClient(client.id)}
           >
             {/* Actions: Always visible on mobile, subtle on hover on desktop */}
             <div className="absolute top-4 sm:top-6 right-4 sm:right-6 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">

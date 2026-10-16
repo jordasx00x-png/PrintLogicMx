@@ -22,6 +22,8 @@ export function useStore(isAuthenticated: boolean = false) {
   const [rawSales, setRawSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [deduplicationDone, setDeduplicationDone] = useState(false);
+
 
   // Dynamically link clients to check-ins ONLY when an explicit clientId is present
   const checkIns = rawCheckIns.map(checkIn => {
@@ -85,6 +87,61 @@ export function useStore(isAuthenticated: boolean = false) {
     }
   }, []);
 
+  // Automatically deduplicate clients by name
+  useEffect(() => {
+    if (clients.length > 0 && !deduplicationDone) {
+      const performDeduplication = async () => {
+        const nameMap = new Map<string, Client[]>();
+        clients.forEach(c => {
+          const name = c.name.trim().toLowerCase();
+          if (!nameMap.has(name)) nameMap.set(name, []);
+          nameMap.get(name)?.push(c);
+        });
+
+        let changed = false;
+        for (const [name, duplicates] of nameMap) {
+          if (duplicates.length > 1) {
+            changed = true;
+            // Select master: one with most check-ins or simply first
+            const master = duplicates[0];
+            const dups = duplicates.slice(1);
+
+            for (const dup of dups) {
+              if (!dup.id) continue;
+              
+              // 1. Re-link check-ins
+              for (const checkIn of rawCheckIns) {
+                if (checkIn.clientId === dup.id || checkIn.client?.id === dup.id) {
+                   await fetch(`/api/checkins/${checkIn.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...checkIn, clientId: master.id, client: { ...checkIn.client, id: master.id } }),
+                  });
+                }
+              }
+
+              // 2. Re-link sales
+              for (const sale of rawSales) {
+                if (sale.clientId === dup.id || sale.client?.id === dup.id) {
+                   await fetch(`/api/sales/${sale.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...sale, clientId: master.id, client: { ...sale.client, id: master.id } }),
+                  });
+                }
+              }
+
+              // 3. Delete duplicate
+              await deleteClient(dup.id);
+            }
+          }
+        }
+        setDeduplicationDone(true);
+        if (changed) fetchData(); // Refresh data
+      };
+      performDeduplication();
+    }
+  }, [clients, deduplicationDone, rawCheckIns, rawSales, fetchData]);
   useEffect(() => {
     // Initial fetch from local backend
     fetchData();
@@ -101,19 +158,13 @@ export function useStore(isAuthenticated: boolean = false) {
       }
     });
     const unsubProducts = subscribeProducts((data) => {
-      if (data && data.length > 0) {
-        setProducts(data);
-      }
+      setProducts(data || []);
     });
     const unsubClients = subscribeClients((data) => {
-      if (data && data.length > 0) {
-        setClients(data);
-      }
+      setClients(data || []);
     });
     const unsubSales = subscribeSales((data) => {
-      if (data && data.length > 0) {
-        setRawSales(data);
-      }
+      setRawSales(data || []);
     });
 
     return () => {

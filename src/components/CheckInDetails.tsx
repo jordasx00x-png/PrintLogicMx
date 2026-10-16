@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { CheckIn, Quote, QuoteItem, Product } from '../types';
+import { CheckIn, Quote, QuoteItem, Product, Client } from '../types';
 import { ArrowLeft, Printer, User, FileText, Plus, Trash2, Send, CheckCircle2, Edit2, Save, History, Lock, Unlock, Clock, Search, AlertCircle, Download, QrCode, Barcode, ShieldCheck, X } from 'lucide-react';
 import { QuoteSheet } from './QuoteSheet';
 import { QuotePrintable } from './QuotePrintable';
@@ -10,6 +10,7 @@ interface CheckInDetailsProps {
   checkIn: CheckIn;
   checkIns?: CheckIn[];
   products?: Product[];
+  clients?: Client[];
   onBack: () => void;
   onAddQuote: (checkInId: string, quote: Omit<Quote, 'id' | 'createdAt' | 'status'>, optionKey: 'quote' | 'quoteB') => void;
   onUpdateQuote: (checkInId: string, quote: Quote, optionKey: 'quote' | 'quoteB') => void;
@@ -24,7 +25,7 @@ interface CheckInDetailsProps {
   onAddProduct?: (product: Omit<Product, 'id'>) => Promise<void> | void;
 }
 
-export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onDeleteQuote, onUpdateStatus, onUpdateClient, onUpdatePrinter, onUpdateNotes, onDelete, onAddProduct }: CheckInDetailsProps) {
+export function CheckInDetails({ checkIn, checkIns = [], products = [], clients = [], onBack, onAddQuote, onUpdateQuote, onMarkQuoteAsSent, onUnlockQuote, onDeleteQuote, onUpdateStatus, onUpdateClient, onUpdatePrinter, onUpdateNotes, onDelete, onAddProduct }: CheckInDetailsProps) {
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [isEditingQuote, setIsEditingQuote] = useState(false);
   const [isEditingClient, setIsEditingClient] = useState(false);
@@ -45,6 +46,7 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
   const [isCustomQuoteTax, setIsCustomQuoteTax] = useState<boolean>(false);
   const [activeQuoteOption, setActiveQuoteOption] = useState<'quote' | 'quoteB'>('quote');
   const [activeShareQuote, setActiveShareQuote] = useState<'quote' | 'quoteB'>('quote');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
@@ -807,14 +809,35 @@ export function CheckInDetails({ checkIn, checkIns = [], products = [], onBack, 
 
                 {isEditingClient ? (
                   <div className="space-y-3">
-                    <div className="space-y-1">
+                    <div className="space-y-1 relative">
                       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Nombre</label>
                       <input
                         type="text"
                         value={editClientForm.name}
-                        onChange={e => setEditClientForm({...editClientForm, name: e.target.value})}
+                        onChange={e => {
+                          setEditClientForm({...editClientForm, name: e.target.value});
+                          setShowClientSuggestions(true);
+                        }}
+                        onFocus={() => setShowClientSuggestions(true)}
                         className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
                       />
+                      {showClientSuggestions && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-40 overflow-y-auto">
+                          {clients.filter(c => c.name.toLowerCase().includes(editClientForm.name.toLowerCase())).map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setEditClientForm({ name: c.name, phone: c.phone, email: c.email || '', address: c.address || '' });
+                                setShowClientSuggestions(false);
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs font-bold text-slate-700 border-b last:border-0"
+                            >
+                              {c.name} - <span className="text-slate-400">{c.phone}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">

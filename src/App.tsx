@@ -13,6 +13,7 @@ import { CompanySettings } from './components/CompanySettings';
 import { SalesList } from './components/sales/SalesList';
 import { NewSale } from './components/sales/NewSale';
 import { SaleDetails } from './components/sales/SaleDetails';
+import { ClientDetails } from './components/ClientDetails';
 import { ToastContainer } from './components/Toast';
 import { useStore } from './hooks/useStore';
 import { useAuth } from './hooks/useAuth';
@@ -42,6 +43,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [selectedCheckInId, setSelectedCheckInId] = useState<string | null>(null);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const { toasts, addToast, removeToast } = useToast();
   const { 
     checkIns, 
@@ -87,6 +89,9 @@ export default function App() {
     }
     if (view !== 'sale-details') {
       setSelectedSaleId(null);
+    }
+    if (view !== 'client-details') {
+      setSelectedClientId(null);
     }
   };
 
@@ -528,6 +533,10 @@ export default function App() {
           onAddClient={handleAddClient}
           onUpdateClient={handleUpdateClientData}
           onDeleteClient={handleDeleteClient}
+          onViewClient={(clientId) => {
+            setSelectedClientId(clientId);
+            handleNavigate('client-details');
+          }}
         />
       )}
       {currentView === 'sales' && (
@@ -564,11 +573,20 @@ export default function App() {
       {currentView === 'settings' && (
         <CompanySettings />
       )}
+      {currentView === 'client-details' && selectedClientId && (
+        <ClientDetails
+          client={clients.find(c => c.id === selectedClientId)!}
+          checkIns={checkIns}
+          sales={sales}
+          onBack={() => handleNavigate('clients')}
+        />
+      )}
       {currentView === 'details' && selectedCheckIn && (
         <CheckInDetails
           checkIn={selectedCheckIn}
           checkIns={checkIns}
           products={products}
+          clients={clients}
           onBack={() => handleNavigate('list')}
           onAddQuote={handleAddQuote}
           onUpdateQuote={handleUpdateQuote}

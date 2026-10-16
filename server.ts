@@ -1,3 +1,6 @@
+import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import express from 'express';
 import http from 'http';
 import { createServer as createViteServer } from 'vite';
@@ -300,29 +303,16 @@ async function startServer() {
       const base64Data = imageBase64.replace(/^data:image\/[a-z0-9-+.]+;base64,/, '');
 
       const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
         console.warn('GEMINI_API_KEY no configurado en entorno.');
-        return res.status(500).json({
+        return res.status(200).json({
           success: false,
           error: 'Servicio de reconocimiento con IA no configurado en el servidor.'
         });
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  mimeType: mimeType || 'image/jpeg',
-                  data: base64Data,
-                },
-              },
-              {
-                text: `Eres un asistente experto para talleres de reparación de impresoras (Epson, HP, Canon, Brother, Kyocera, Zebra, Ricoh, etc.).
+      const prompt = `Eres un asistente experto para talleres de reparación de impresoras (Epson, HP, Canon, Brother, Kyocera, Zebra, Ricoh, etc.).
 Analiza con máxima atención la fotografía de la etiqueta, placa metálica de especificaciones, código de barras o chasis del equipo.
 Extrae estrictamente los siguientes datos:
 1. "serialNumber": Número de serie exacto (S/N, Serial No, Serie, o texto alfanumérico debajo del código de barras). Limpia cualquier prefijo como "S/N:", "S/N", "SER. NO:", "SERIE:". Devuélvelo en MAYÚSCULAS sin espacios.
@@ -335,17 +325,55 @@ Responde ÚNICAMENTE un JSON válido con este formato:
   "brand": "...",
   "model": "..."
 }
-Si algún dato no está visible o no se puede determinar con certeza, devuelve una cadena vacía "". No agregues texto adicional fuera del JSON.`,
+Si algún dato no está visible o no se puede determinar con certeza, devuelve una cadena vacía "". No agregues texto adicional fuera del JSON.`;
+
+      // Models to try in order of availability and speed
+      const candidateModels = ['gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.8-flash'];
+      let responseText = '';
+
+      for (const modelName of candidateModels) {
+        try {
+          const generatePromise = ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: mimeType || 'image/jpeg',
+                      data: base64Data,
+                    },
+                  },
+                  { text: prompt },
+                ],
               },
             ],
-          },
-        ],
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+            config: {
+              responseMimeType: 'application/json',
+            },
+          });
 
-      const responseText = response.text?.trim() || '{}';
+          // 12-second timeout per candidate
+          const timeoutPromise = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Tiempo de espera agotado al consultar IA')), 12000)
+          );
+
+          const response = await Promise.race([generatePromise, timeoutPromise]);
+          responseText = response.text?.trim() || '';
+          if (responseText) break;
+        } catch (err: any) {
+          console.warn(`Error probando modelo ${modelName}:`, err?.message || err);
+        }
+      }
+
+      if (!responseText) {
+        return res.status(200).json({
+          success: false,
+          error: 'No se pudo obtener respuesta del servicio de análisis en este momento.',
+        });
+      }
+
       let parsed = { serialNumber: '', brand: '', model: '' };
       try {
         parsed = JSON.parse(responseText);
@@ -368,13 +396,13 @@ Si algún dato no está visible o no se puede determinar con certeza, devuelve u
       console.log('Serial scan result:', { cleanSerial, brand: parsed.brand, model: parsed.model });
 
       if (!cleanSerial && !parsed.model && !parsed.brand) {
-        return res.json({
+        return res.status(200).json({
           success: false,
           error: 'No se detectó un número de serie legible en la imagen. Enfoca bien la etiqueta o código de barras e intenta de nuevo.',
         });
       }
 
-      res.json({
+      res.status(200).json({
         success: true,
         serialNumber: cleanSerial,
         brand: (parsed.brand || '').trim(),
@@ -382,9 +410,9 @@ Si algún dato no está visible o no se puede determinar con certeza, devuelve u
       });
     } catch (error: any) {
       console.error('Error en /api/scan-serial:', error);
-      res.status(500).json({
+      res.status(200).json({
         success: false,
-        error: 'Ocurrió un error al analizar la fotografía: ' + (error.message || 'Error desconocido'),
+        error: 'Ocurrió un error al procesar la fotografía: ' + (error.message || 'Error desconocido'),
       });
     }
   });

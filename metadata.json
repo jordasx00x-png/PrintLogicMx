@@ -3,5 +3,8 @@
   "description": "Sistema para el ingreso de impresoras, gestión de clientes y envío de cotizaciones por WhatsApp.",
   "requestFramePermissions": [
     "camera"
+  ],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }

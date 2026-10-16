@@ -70,6 +70,7 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
   // Photo & AI Serial Scanning States
   const [serialPhoto, setSerialPhoto] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -189,8 +190,56 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     }
   };
 
+  // Helper to downscale base64 image to prevent browser freeze and fast uploads
+  const resizeBase64Image = (base64: string, maxDim = 1280, quality = 0.85): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const timer = setTimeout(() => resolve(base64), 2000);
+      
+      const doResize = () => {
+        clearTimeout(timer);
+        try {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+          if (!width || !height) return resolve(base64);
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve(base64);
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          console.warn('Resize fallback:', e);
+          resolve(base64);
+        }
+      };
+
+      img.onload = doResize;
+      img.onerror = () => {
+        clearTimeout(timer);
+        resolve(base64);
+      };
+      img.src = base64;
+      if (img.complete && img.naturalWidth > 0) {
+        doResize();
+      }
+    });
+  };
+
   const handleOpenScanner = () => {
     setIsCameraOpen(true);
+    setCapturedPreview(null);
     setScanError(null);
     setScanMessage(null);
     startCamera(cameraFacing);
@@ -200,93 +249,127 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     stopCamera();
     setIsCameraOpen(false);
     setIsScanning(false);
+    setCapturedPreview(null);
     setScanError(null);
     setScanMessage(null);
+  };
+
+  const handleRetake = () => {
+    setCapturedPreview(null);
+    setScanError(null);
+    setScanMessage(null);
+    startCamera(cameraFacing);
   };
 
   const toggleCameraFacing = () => {
     const nextFacing = cameraFacing === 'environment' ? 'user' : 'environment';
     setCameraFacing(nextFacing);
+    setCapturedPreview(null);
     startCamera(nextFacing);
   };
 
   // Process and analyze image with AI / Barcode
-  const processImageForSerial = async (base64Image: string) => {
+  const processImageForSerial = async (rawBase64: string) => {
     setIsScanning(true);
     setScanError(null);
-    setScanMessage('Analizando fotografía con IA y extrayendo número de serie...');
+    setScanMessage('Guardando foto y analizando número de serie...');
 
     try {
-      // 1. Try Client-side BarcodeDetector if supported
-      let detectedBarcodeText = '';
+      // 1. Immediately compress image & save it so photo is NEVER lost!
+      const compressedImage = await resizeBase64Image(rawBase64, 1280, 0.85);
+      setSerialPhoto(compressedImage);
+      setCapturedPreview(compressedImage);
+
+      let extractedSerial = '';
+      let extractedBrand = '';
+      let extractedModel = '';
+
+      // 2. Try client-side BarcodeDetector first (instant)
       if ('BarcodeDetector' in window) {
         try {
           const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'data_matrix']
+            formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'data_matrix', 'upc_a', 'upc_e']
           });
           const img = new Image();
-          img.src = base64Image;
-          await new Promise(r => { img.onload = r; });
+          const imgLoadPromise = new Promise<void>((res) => {
+            img.onload = () => res();
+            img.onerror = () => res();
+            setTimeout(res, 800);
+          });
+          img.src = compressedImage;
+          if (!img.complete) {
+            await imgLoadPromise;
+          }
           const barcodes = await barcodeDetector.detect(img);
           if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-            detectedBarcodeText = barcodes[0].rawValue.trim();
-            console.log('Client-side barcode detected:', detectedBarcodeText);
+            const raw = barcodes[0].rawValue.trim();
+            if (raw.length >= 3) {
+              extractedSerial = raw;
+              console.log('Client-side barcode detected:', extractedSerial);
+            }
           }
         } catch (be) {
           console.warn('BarcodeDetector error:', be);
         }
       }
 
-      // 2. Call server-side Gemini OCR endpoint
-      const response = await fetch('/api/scan-serial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64Image,
-          mimeType: 'image/jpeg'
-        })
-      });
+      // 3. Call server-side Gemini OCR endpoint with a 10s strict timeout
+      try {
+        setScanMessage('Leyendo serie con Inteligencia Artificial...');
+        const abortCtrl = new AbortController();
+        const timeoutId = setTimeout(() => abortCtrl.abort(), 10000);
 
-      const data = await response.json();
+        const response = await fetch('/api/scan-serial', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: compressedImage,
+            mimeType: 'image/jpeg'
+          }),
+          signal: abortCtrl.signal
+        });
+        clearTimeout(timeoutId);
 
-      let extractedSerial = '';
-      let extractedBrand = '';
-      let extractedModel = '';
-
-      if (data.success && data.serialNumber) {
-        extractedSerial = data.serialNumber;
-        extractedBrand = data.brand || '';
-        extractedModel = data.model || '';
-      } else if (detectedBarcodeText) {
-        extractedSerial = detectedBarcodeText;
+        const data = await response.json();
+        if (data.success && data.serialNumber) {
+          extractedSerial = data.serialNumber;
+          extractedBrand = data.brand || '';
+          extractedModel = data.model || '';
+        } else if (data.error && !extractedSerial) {
+          console.log('Server OCR info:', data.error);
+        }
+      } catch (fetchErr: any) {
+        console.warn('Server OCR request timed out or failed:', fetchErr?.message);
       }
 
-      if (!extractedSerial) {
-        throw new Error(data.error || 'No se pudo identificar el número de serie en la fotografía. Intenta enfocar más cerca la etiqueta blanca o código de barras.');
+      setIsScanning(false);
+
+      if (extractedSerial) {
+        // Automatically fill the serial number!
+        setFormData(prev => ({
+          ...prev,
+          printerSerialNumber: extractedSerial,
+          printerBrand: (!prev.printerBrand && extractedBrand) ? extractedBrand : prev.printerBrand,
+          printerModel: (!prev.printerModel && extractedModel) ? extractedModel : prev.printerModel,
+        }));
+
+        setScanMessage(`¡Número de serie detectado: ${extractedSerial}!`);
+        
+        // Auto close camera after brief confirmation
+        setTimeout(() => {
+          handleCloseScanner();
+        }, 1200);
+      } else {
+        // Photo was saved successfully, but OCR didn't read it automatically
+        setScanMessage(null);
+        setScanError('Foto guardada. No se detectó la serie automáticamente; puedes escribirla abajo o continuar.');
       }
-
-      // Automatically fill the serial number!
-      setFormData(prev => ({
-        ...prev,
-        printerSerialNumber: extractedSerial,
-        printerBrand: (!prev.printerBrand && extractedBrand) ? extractedBrand : prev.printerBrand,
-        printerModel: (!prev.printerModel && extractedModel) ? extractedModel : prev.printerModel,
-      }));
-
-      // Automatically save the serial photo!
-      setSerialPhoto(base64Image);
-
-      setScanMessage(`¡Número de serie guardado en automático: ${extractedSerial}!`);
-      
-      // Auto close camera after brief confirmation
-      setTimeout(() => {
-        handleCloseScanner();
-      }, 1200);
 
     } catch (err: any) {
       console.error('Scan processing error:', err);
-      setScanError(err.message || 'Error al procesar la fotografía.');
       setIsScanning(false);
+      setScanMessage(null);
+      setScanError('Foto guardada con éxito. Puedes escribir el número de serie abajo.');
     }
   };
 
@@ -296,21 +379,25 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     
     try {
       const video = videoRef.current;
+      const w = video.videoWidth || 1280;
+      const h = video.videoHeight || 720;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 1280;
-      canvas.height = video.videoHeight || 720;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const base64 = canvas.toDataURL('image/jpeg', 0.92);
+      ctx.drawImage(video, 0, 0, w, h);
+      const base64 = canvas.toDataURL('image/jpeg', 0.88);
       
-      // Freeze stream while processing
+      // Stop camera feed and freeze preview
       stopCamera();
+      setCapturedPreview(base64);
       processImageForSerial(base64);
     } catch (e: any) {
       console.error('Snapshot capture error:', e);
       setScanError('Error al capturar la imagen de la cámara.');
+      setIsScanning(false);
     }
   };
 
@@ -322,11 +409,9 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
-      if (isCameraOpen) {
-        stopCamera();
-      } else {
-        setIsCameraOpen(true);
-      }
+      stopCamera();
+      setIsCameraOpen(true);
+      setCapturedPreview(base64);
       processImageForSerial(base64);
     };
     reader.readAsDataURL(file);
@@ -1061,15 +1146,23 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
 
               {/* Viewfinder Area */}
               <div className="relative aspect-4/3 sm:aspect-16/10 bg-black flex items-center justify-center overflow-hidden">
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
+                {capturedPreview ? (
+                  <img
+                    src={capturedPreview}
+                    alt="Foto capturada del equipo"
+                    className="w-full h-full object-contain bg-slate-950"
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                )}
 
-                {/* Laser Overlay Scanner Frame */}
-                {!isScanning && (
+                {/* Laser Overlay Scanner Frame (Only when aiming active camera) */}
+                {!isScanning && !capturedPreview && (
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6">
                     <div className="w-4/5 h-2/3 border-2 border-blue-400/80 rounded-2xl relative shadow-[0_0_20px_rgba(59,130,246,0.3)]">
                       {/* Corner Accents */}
@@ -1104,6 +1197,13 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                       <p className="text-sm font-bold text-white">Extrayendo Número de Serie...</p>
                       <p className="text-xs text-slate-400 mt-1">{scanMessage || 'Analizando caracteres y códigos con IA'}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsScanning(false)}
+                      className="mt-2 text-[11px] text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                    >
+                      Continuar con foto guardada sin esperar
+                    </button>
                   </div>
                 )}
 
@@ -1115,50 +1215,96 @@ export function NewCheckIn({ onSave, onCancel, checkIns = [], clients = [], isSa
                   </div>
                 )}
 
-                {/* Error Banner */}
+                {/* Info / Notice Banner */}
                 {scanError && !isScanning && (
-                  <div className="absolute inset-x-4 bottom-4 bg-rose-600/90 text-white px-4 py-3 rounded-xl shadow-lg flex items-start gap-2.5 text-xs font-medium">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-white mt-0.5" />
+                  <div className="absolute inset-x-4 bottom-4 bg-slate-900/95 border border-amber-500/40 text-amber-200 px-4 py-3 rounded-xl shadow-lg flex items-start gap-2.5 text-xs font-medium">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-bold">No se pudo leer la serie</p>
-                      <p className="text-[11px] text-rose-100">{scanError}</p>
+                      <p className="font-bold text-white">Foto adjunta correctamente</p>
+                      <p className="text-[11px] text-slate-300 mt-0.5">{scanError}</p>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Action Controls */}
-              <div className="p-5 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={toggleCameraFacing}
-                  disabled={isScanning}
-                  className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
-                  title="Cambiar cámara frontal / trasera"
-                >
-                  <FlipHorizontal className="w-5 h-5" />
-                </button>
+              <div className="p-4 sm:p-5 bg-slate-900 border-t border-slate-800">
+                {capturedPreview && !isScanning ? (
+                  /* Review and Confirm Mode */
+                  <div className="space-y-3">
+                    <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <label className="text-slate-400 font-bold flex items-center gap-1.5">
+                          <Barcode className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Número de Serie:</span>
+                        </label>
+                        <span className="text-[10px] text-emerald-400 font-medium">✓ Foto guardada</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={formData.printerSerialNumber}
+                        onChange={(e) => setFormData(prev => ({ ...prev, printerSerialNumber: e.target.value.toUpperCase() }))}
+                        placeholder="Ej. X7Y9081234"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                      />
+                    </div>
 
-                {/* Big Shutter Capture Button */}
-                <button
-                  type="button"
-                  disabled={isScanning}
-                  onClick={handleCaptureSnapshot}
-                  className="flex-1 py-3 px-5 bg-blue-600 hover:bg-blue-500 active:scale-98 disabled:bg-slate-800 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-blue-400/30"
-                >
-                  <Camera className="w-5 h-5 text-white" />
-                  <span className="text-xs sm:text-sm">Tomar Foto y Extraer Serie</span>
-                </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetake}
+                        className="py-3 px-4 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-slate-700"
+                        title="Tomar otra foto"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Tomar Otra</span>
+                      </button>
 
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isScanning}
-                  className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
-                  title="Elegir foto de la galería"
-                >
-                  <ImageIcon className="w-5 h-5" />
-                </button>
+                      <button
+                        type="button"
+                        onClick={handleCloseScanner}
+                        className="flex-1 py-3 px-5 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-950/40 border border-emerald-400/30"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Guardar Foto y Cerrar</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Live Camera Viewfinder Mode */
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleCameraFacing}
+                      disabled={isScanning}
+                      className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
+                      title="Cambiar cámara frontal / trasera"
+                    >
+                      <FlipHorizontal className="w-5 h-5" />
+                    </button>
+
+                    {/* Big Shutter Capture Button */}
+                    <button
+                      type="button"
+                      disabled={isScanning}
+                      onClick={handleCaptureSnapshot}
+                      className="flex-1 py-3 px-5 bg-blue-600 hover:bg-blue-500 active:scale-98 disabled:bg-slate-800 text-white font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer border border-blue-400/30"
+                    >
+                      <Camera className="w-5 h-5 text-white" />
+                      <span className="text-xs sm:text-sm">Tomar Foto y Extraer Serie</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isScanning}
+                      className="p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-2xl transition-all cursor-pointer border border-slate-700"
+                      title="Elegir foto de la galería"
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
